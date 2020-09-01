@@ -1,8 +1,13 @@
 use std::process;
 
+mod utility;
+
 fn main() {
+    let dir = utility::get_var("DIR", ".");
+
     let output = process::Command::new("npm")
         .arg("outdated")
+        .current_dir(&dir)
         .output()
         .expect("Failed running npm script!");
 
@@ -33,6 +38,7 @@ fn main() {
     let mut install = process::Command::new("npm")
         .arg("i")
         .args(&packages)
+        .current_dir(&dir)
         .spawn()
         .expect("Failed running npm script!");
 
