@@ -9,7 +9,7 @@ fi
 
 printf "Outdated dependencies\n\n${outdated}\n\n"
 
-regex="^[a-z@\-]+ "
+regex="^[a-z\/@\-]+ "
 command="npm i"
 
 while IFS= read -r line; do
