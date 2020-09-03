@@ -1,0 +1,16 @@
+{
+  "name": "npm_dir",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/jest": "^26.0.2",
+    "left-pad": "^1.2.0",
+    "polished": "^3.6.5"
+  }
+}
