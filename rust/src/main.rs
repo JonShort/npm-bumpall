@@ -1,12 +1,24 @@
 use std::process;
 
+mod emojis;
+mod package;
 mod utility;
+
+use emojis::{CROSS, DIZZY, MAGNIFYING_GLASS, POINT_RIGHT, ROCKET, TROPHY};
+use package::Package;
 
 fn main() {
     let dir = utility::get_var("DIR", ".");
 
+    println!(
+        "{} Checking for outdated packages... {}",
+        &MAGNIFYING_GLASS, &MAGNIFYING_GLASS
+    );
+    println!();
+
     let output = process::Command::new("npm")
         .arg("outdated")
+        .arg("--parseable")
         .current_dir(&dir)
         .output()
         .expect("Failed running npm script!");
@@ -15,29 +27,51 @@ fn main() {
         Ok(s) => s,
         Err(e) => {
             println!("{}", e);
-            process::exit(0x0100)
+            process::exit(65)
         }
     };
 
-    println!("{}", output);
+    if output.trim() == "" {
+        println!("{} No outdated packages found {}", &ROCKET, &ROCKET);
+        process::exit(0)
+    }
 
-    let split_by_eol: Vec<&str> = output.split_terminator("\n").collect();
-    let split_by_eol = &split_by_eol[1..];
+    let split_by_eol: Vec<&str> = output.split_terminator('\n').collect();
 
-    let packages: Vec<String> = split_by_eol
+    let packages: Vec<Package> = split_by_eol
         .iter()
-        .map(|s| {
-            let word = get_first_word(s);
-            format!("{}@latest", word)
+        .filter_map(|&s| {
+            let pkg = Package::new(s.into());
+
+            match pkg {
+                Ok(p) => Some(p),
+                Err(_) => None,
+            }
         })
         .collect();
 
-    let readable_command = format!("npm i {}", packages.join(" "));
-    println!("Running:\n{}\n\n", readable_command);
+    println!("Updates required");
+    for pkg in packages.iter() {
+        println!(
+            "{} {} {} -> {}",
+            &POINT_RIGHT, pkg.name, pkg.current_version, pkg.latest_version
+        );
+    }
+    println!();
+
+    let cmd_args: Vec<String> = packages
+        .iter()
+        .map(|pkg| String::from(&pkg.install_cmd))
+        .collect();
+
+    println!("{} Upgrading packages {}", &DIZZY, &DIZZY);
+    println!();
 
     let mut install = process::Command::new("npm")
+        .stdout(process::Stdio::null())
+        .stderr(process::Stdio::null())
         .arg("i")
-        .args(&packages)
+        .args(&cmd_args)
         .current_dir(&dir)
         .spawn()
         .expect("Failed running npm script!");
@@ -45,20 +79,11 @@ fn main() {
     let status = install.wait().expect("npm script failed");
 
     if status.success() {
-        println!("All packages now bumped to latest");
+        println!("{} All packages now bumped to latest {}", &TROPHY, &TROPHY);
     } else {
-        println!("Issue installing packages - try running manually");
-    }
-}
-
-fn get_first_word(s: &str) -> &str {
-    let idx = match s.find(" ") {
-        Some(i) => i,
-        _ => return "",
-    };
-
-    match s.get(..idx) {
-        Some(word) => word,
-        _ => return "",
+        println!(
+            "{} Issue installing packages - try running manually {}",
+            &CROSS, &CROSS
+        );
     }
 }
