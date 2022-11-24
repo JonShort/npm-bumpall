@@ -1,4 +1,20 @@
-# Rust
+# npm-bumpall
+
+Utility to bump npm packages, by default to the latest minor version.
+
+Main feature is also updating the `package.json`, rather than just updating the version in the lockfile (e.g. like how `npm update` works)
+
+## Usage
+_Execute the binary_
+```bash
+~/repos/npm-bumpall/rust/target/release/npm-bumpall
+```
+
+### Options
+
+`--latest` | `-l` - bump dependencies to latest possible version (includes major changes)
+
+`--legacy-peer-deps` | `-lpd` - includes this option in the npm install under the hood
 
 ## Compiling
 _Generate a release build_
@@ -9,7 +25,9 @@ cargo build --release
 ## Development
 _Run locally against stub folder_
 ```bash
-DIR=./npm_dir cargo run
+cargo build
+cd ./npm_dir
+../target/debug/npm-bumpall
 ```
 
 _downgrade stub folder_
