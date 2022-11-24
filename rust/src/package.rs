@@ -1,5 +1,7 @@
 use std::{error::Error, fmt};
 
+use crate::utility::{Config, UpgradeStyle};
+
 #[derive(Debug, Clone)]
 pub struct ParseError;
 
@@ -10,14 +12,6 @@ impl fmt::Display for ParseError {
 }
 
 impl Error for ParseError {}
-
-pub struct Package {
-    pub current_version: String,
-    pub install_cmd: String,
-    pub latest_version: String,
-    pub name: String,
-    pub wanted_version: String,
-}
 
 fn val_or_err<T>(opt: Option<T>) -> Result<T, ParseError> {
     if let Some(val) = opt {
@@ -37,22 +31,39 @@ fn split_name_and_version(src: Option<&str>) -> Result<(String, String), ParseEr
     Ok((name.to_string(), version.to_string()))
 }
 
+pub struct Package {
+    pub current_version: String,
+    pub install_cmd: String,
+    pub latest_version: String,
+    pub name: String,
+    pub skip: bool,
+    pub wanted_version: String,
+}
+
 impl Package {
-    pub fn new(src: String) -> Result<Package, ParseError> {
+    pub fn new(src: String, config: &Config) -> Result<Package, ParseError> {
         // location:name@current_version:name@wanted_version:name@latest_version:project
         let mut segments = src.split(':');
         let _location = val_or_err(segments.next())?;
         let (name, wanted_version) = split_name_and_version(segments.next())?;
         let (_, current_version) = split_name_and_version(segments.next())?;
         let (_, latest_version) = split_name_and_version(segments.next())?;
-        let install_cmd = format!("{}@latest", name);
+
+        let upgrade_string = match config.upgrade_style {
+            UpgradeStyle::Latest => latest_version.clone(),
+            UpgradeStyle::Wanted => wanted_version.clone(),
+        };
+        let install_cmd = format!("{}@{}", name, upgrade_string);
+
+        let skip = current_version == upgrade_string;
 
         Ok(Package {
-            name,
             current_version,
-            wanted_version,
-            latest_version,
             install_cmd,
+            latest_version,
+            name,
+            skip,
+            wanted_version,
         })
     }
 }
