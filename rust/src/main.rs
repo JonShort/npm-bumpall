@@ -1,4 +1,4 @@
-use std::process;
+use std::{env, process};
 
 mod emojis;
 mod package;
@@ -6,9 +6,13 @@ mod utility;
 
 use emojis::{CROSS, DIZZY, MAGNIFYING_GLASS, POINT_RIGHT, ROCKET, TROPHY};
 use package::Package;
+use utility::{Config, UpgradeStyle};
 
 fn main() {
-    let dir = utility::get_var("DIR", ".");
+    let config = Config::new_from_args(env::args()).unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        process::exit(65);
+    });
 
     println!(
         "{} Checking for outdated packages... {}",
@@ -19,50 +23,60 @@ fn main() {
     let output = process::Command::new("npm")
         .arg("outdated")
         .arg("--parseable")
-        .current_dir(&dir)
         .output()
         .expect("Failed running npm script!");
 
     let output = match String::from_utf8(output.stdout) {
         Ok(s) => s,
         Err(e) => {
-            println!("{}", e);
+            eprintln!("{}", e);
             process::exit(65)
         }
     };
-
-    if output.trim() == "" {
-        println!("{} No outdated packages found {}", &ROCKET, &ROCKET);
-        process::exit(0)
-    }
 
     let split_by_eol: Vec<&str> = output.split_terminator('\n').collect();
 
     let packages: Vec<Package> = split_by_eol
         .iter()
-        .filter_map(|&s| {
-            let pkg = Package::new(s.into());
-
-            match pkg {
-                Ok(p) => Some(p),
-                Err(_) => None,
+        .filter_map(|&s| match Package::new(s.into(), &config) {
+            Ok(pkg) => {
+                if pkg.skip {
+                    None
+                } else {
+                    Some(pkg)
+                }
             }
+            Err(_) => None,
         })
         .collect();
 
+    if packages.is_empty() {
+        println!("{} No outdated packages found {}", &ROCKET, &ROCKET);
+        process::exit(0)
+    }
+
     println!("Updates required");
     for pkg in packages.iter() {
+        let upgrade_version = match &config.upgrade_style {
+            UpgradeStyle::Latest => &pkg.latest_version,
+            UpgradeStyle::Wanted => &pkg.wanted_version,
+        };
+
         println!(
             "{} {} {} -> {}",
-            &POINT_RIGHT, pkg.name, pkg.current_version, pkg.latest_version
+            &POINT_RIGHT, pkg.name, pkg.current_version, upgrade_version
         );
     }
     println!();
 
-    let cmd_args: Vec<String> = packages
+    let mut cmd_args: Vec<String> = packages
         .iter()
         .map(|pkg| String::from(&pkg.install_cmd))
         .collect();
+
+    if config.legacy_peer_deps {
+        cmd_args.push(String::from("--legacy-peer-deps"));
+    }
 
     println!("{} Upgrading packages {}", &DIZZY, &DIZZY);
     println!();
@@ -72,14 +86,13 @@ fn main() {
         .stderr(process::Stdio::null())
         .arg("i")
         .args(&cmd_args)
-        .current_dir(&dir)
         .spawn()
         .expect("Failed running npm script!");
 
     let status = install.wait().expect("npm script failed");
 
     if status.success() {
-        println!("{} All packages now bumped to latest {}", &TROPHY, &TROPHY);
+        println!("{} All packages bumped {}", &TROPHY, &TROPHY);
     } else {
         println!(
             "{} Issue installing packages - try running manually {}",
