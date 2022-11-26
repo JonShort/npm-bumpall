@@ -16,6 +16,8 @@ _Execute the binary_
 
 `--legacy-peer-deps` | `-lpd` - includes this option in the npm install under the hood
 
+`--verbose` | `-vb` - include all possible messages in console output (e.g. warnings from npm itself)
+
 ## Compiling
 _Generate a release build_
 ```bash
