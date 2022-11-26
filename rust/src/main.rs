@@ -1,4 +1,4 @@
-use std::process;
+use std::{env, process};
 
 mod emojis;
 mod package;
@@ -6,55 +6,60 @@ mod utility;
 
 use emojis::{CROSS, DIZZY, MAGNIFYING_GLASS, POINT_RIGHT, ROCKET, TROPHY};
 use package::Package;
+use utility::{print_message, Config, UpgradeStyle};
 
 fn main() {
-    let dir = utility::get_var("DIR", ".");
+    let config = Config::new_from_args(env::args()).unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        process::exit(65);
+    });
 
-    println!(
-        "{} Checking for outdated packages... {}",
-        &MAGNIFYING_GLASS, &MAGNIFYING_GLASS
-    );
-    println!();
+    print_message("Checking for outdated packages...", &MAGNIFYING_GLASS);
 
     let output = process::Command::new("npm")
         .arg("outdated")
         .arg("--parseable")
-        .current_dir(&dir)
         .output()
-        .expect("Failed running npm script!");
+        .unwrap_or_else(|err| {
+            eprintln!("{}", err);
+            process::exit(70)
+        });
 
-    let output = match String::from_utf8(output.stdout) {
-        Ok(s) => s,
-        Err(e) => {
-            println!("{}", e);
-            process::exit(65)
-        }
-    };
+    let output = String::from_utf8(output.stdout).unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        process::exit(70)
+    });
 
-    if output.trim() == "" {
+    let split_by_eol: Vec<&str> = output.split_terminator('\n').collect();
+    let packages: Vec<Package> = split_by_eol
+        .iter()
+        .filter_map(|&s| match Package::new(s.into(), &config) {
+            Ok(pkg) => {
+                if pkg.skip {
+                    None
+                } else {
+                    Some(pkg)
+                }
+            }
+            Err(_) => None,
+        })
+        .collect();
+
+    if packages.is_empty() {
         println!("{} No outdated packages found {}", &ROCKET, &ROCKET);
         process::exit(0)
     }
 
-    let split_by_eol: Vec<&str> = output.split_terminator('\n').collect();
-
-    let packages: Vec<Package> = split_by_eol
-        .iter()
-        .filter_map(|&s| {
-            let pkg = Package::new(s.into());
-
-            match pkg {
-                Ok(p) => Some(p),
-                Err(_) => None,
-            }
-        })
-        .collect();
-
     println!("Updates required");
     for pkg in packages.iter() {
+        let upgrade_version = match &config.upgrade_style {
+            UpgradeStyle::Latest => &pkg.latest_version,
+            UpgradeStyle::Wanted => &pkg.wanted_version,
+        };
+
         println!(
             "{} {} {} -> {}",
-            &POINT_RIGHT, pkg.name, pkg.current_version, pkg.latest_version
+            &POINT_RIGHT, pkg.name, pkg.current_version, upgrade_version
         );
     }
     println!();
@@ -64,26 +69,28 @@ fn main() {
         .map(|pkg| String::from(&pkg.install_cmd))
         .collect();
 
-    println!("{} Upgrading packages {}", &DIZZY, &DIZZY);
-    println!();
+    print_message("Upgrading packages", &DIZZY);
 
     let mut install = process::Command::new("npm")
-        .stdout(process::Stdio::null())
-        .stderr(process::Stdio::null())
+        .stdout(config.stdout_method)
+        .stderr(config.stderr_method)
         .arg("i")
         .args(&cmd_args)
-        .current_dir(&dir)
+        .args(&config.additional_install_args)
         .spawn()
-        .expect("Failed running npm script!");
+        .unwrap_or_else(|err| {
+            eprintln!("{}", err);
+            process::exit(70)
+        });
 
-    let status = install.wait().expect("npm script failed");
+    let status = install.wait().unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        process::exit(70)
+    });
 
     if status.success() {
-        println!("{} All packages now bumped to latest {}", &TROPHY, &TROPHY);
+        print_message("All packages bumped", &TROPHY);
     } else {
-        println!(
-            "{} Issue installing packages - try running manually {}",
-            &CROSS, &CROSS
-        );
+        print_message("Issue installing packages - try running manually", &CROSS);
     }
 }
