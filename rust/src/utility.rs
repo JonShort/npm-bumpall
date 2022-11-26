@@ -15,7 +15,7 @@ pub struct Config {
 impl Config {
     /// Accepts a list of arguments, usually an [Args][std::env::Args] struct
     /// sourced from the [std::env::args] function.
-    pub fn new_from_args<T>(args: T) -> Result<Config, &'static str>
+    pub fn new_from_args<T>(args: T) -> Config
     where
         T: Iterator<Item = String>,
     {
@@ -42,12 +42,12 @@ impl Config {
             }
         }
 
-        Ok(Config {
+        Config {
             additional_install_args,
             stderr_method,
             stdout_method,
             upgrade_style,
-        })
+        }
     }
 }
 

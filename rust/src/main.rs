@@ -9,10 +9,7 @@ use package::Package;
 use utility::{print_message, Config, UpgradeStyle};
 
 fn main() {
-    let config = Config::new_from_args(env::args()).unwrap_or_else(|err| {
-        eprintln!("{}", err);
-        process::exit(65);
-    });
+    let config = Config::new_from_args(env::args());
 
     print_message("Checking for outdated packages...", &MAGNIFYING_GLASS);
 
