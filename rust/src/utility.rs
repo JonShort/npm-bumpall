@@ -79,7 +79,7 @@ mod config_tests {
     use super::*;
     #[test]
     fn default_on_no_args() {
-        let args = vec![String::from("")];
+        let args = vec![];
         let result = Config::new_from_args(args.into_iter());
         let expected = Config {
             additional_install_args: vec![],
@@ -141,9 +141,17 @@ mod config_tests {
 
     #[test]
     fn handles_combo_args() {
-        let args_a = vec![String::from("--latest"), String::from("-lpd"), String::from("--verbose")];
+        let args_a = vec![
+            String::from("--latest"),
+            String::from("-lpd"),
+            String::from("--verbose"),
+        ];
         let result_a = Config::new_from_args(args_a.into_iter());
-        let args_b = vec![String::from("-l"), String::from("--legacy-peer-deps"), String::from("-vb")];
+        let args_b = vec![
+            String::from("-l"),
+            String::from("--legacy-peer-deps"),
+            String::from("-vb"),
+        ];
         let result_b = Config::new_from_args(args_b.into_iter());
         let expected = Config {
             additional_install_args: vec![String::from("--legacy-peer-deps")],
