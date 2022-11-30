@@ -23,12 +23,25 @@ fn val_or_err<T>(opt: Option<T>) -> Result<T, ParseError> {
 
 fn split_name_and_version(src: Option<&str>) -> Result<(String, String), ParseError> {
     let src = val_or_err(src)?;
+
+    let is_scoped_package = src.starts_with('@');
     let mut segments = src.split('@');
+
+    if is_scoped_package {
+        // the first value is guaranteed to be an empty slice
+        segments.next();
+    }
 
     let name = val_or_err(segments.next())?;
     let version = val_or_err(segments.next())?;
 
-    Ok((name.to_string(), version.to_string()))
+    if name.trim().is_empty() || version.trim().is_empty() {
+        return Err(ParseError);
+    }
+
+    let prefix = if is_scoped_package { "@" } else { "" };
+
+    Ok((format!("{}{}", prefix, name), version.to_string()))
 }
 
 pub struct Package {
