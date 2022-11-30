@@ -22,6 +22,7 @@ fn print_type_of<T>(_: &T) -> &str {
 impl PartialEq for Config {
     fn eq(&self, other: &Self) -> bool {
         let a = self.additional_install_args == other.additional_install_args;
+        // This doesn't effectively check anything, but better than nothing
         let e = print_type_of(&self.stderr_method) == print_type_of(&other.stderr_method);
         let o = print_type_of(&self.stdout_method) == print_type_of(&other.stdout_method);
         let u = self.upgrade_style == other.upgrade_style;
