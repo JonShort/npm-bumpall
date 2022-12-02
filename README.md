@@ -12,6 +12,8 @@ _Execute the binary_
 
 ### Options
 
+`--dry-run` | `-dr` - list dependencies which would be bumped, but don't update them
+
 `--latest` | `-l` - bump dependencies to latest possible version (includes major changes)
 
 `--legacy-peer-deps` | `-lpd` - includes this option in the npm install under the hood

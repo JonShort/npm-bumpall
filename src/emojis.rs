@@ -1,3 +1,4 @@
+pub const CACTUS: char = '\u{1F335}';
 pub const CROSS: char = '\u{274C}';
 pub const DIZZY: char = '\u{1F4AB}';
 pub const MAGNIFYING_GLASS: char = '\u{1F50D}';

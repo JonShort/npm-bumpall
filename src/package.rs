@@ -262,7 +262,8 @@ mod package_tests {
         let args = vec![];
         let config = Config::new_from_args(args.into_iter());
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided = String::from("location:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.2:@jonshort/cenv@2.1.0");
+        let provided =
+            String::from("location:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.2:@jonshort/cenv@2.1.0");
         let pkg = Package::new(provided, &config)?;
 
         let expected = Package {
