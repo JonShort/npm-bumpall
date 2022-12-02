@@ -1,11 +1,12 @@
 use std::{env, process};
 
+mod color_codes;
 mod emojis;
 mod package;
 mod utility;
 
 use emojis::{CACTUS, CROSS, DIZZY, MAGNIFYING_GLASS, POINT_RIGHT, ROCKET, TROPHY};
-use package::Package;
+use package::{Package, UpgradeType};
 use utility::{print_message, Config, UpgradeStyle};
 
 fn main() {
@@ -54,9 +55,14 @@ fn main() {
             UpgradeStyle::Wanted => &pkg.wanted_version,
         };
 
+        let color = match pkg.upgrade_type {
+            UpgradeType::Safe => color_codes::CYAN,
+            UpgradeType::Major => color_codes::YELLOW,
+        };
+
         println!(
-            "{} {} {} -> {}",
-            &POINT_RIGHT, pkg.name, pkg.current_version, upgrade_version
+            "{} {} {} -> \x1b[{}m{}\x1b[0m",
+            &POINT_RIGHT, pkg.name, pkg.current_version, color, upgrade_version
         );
     }
     println!();

@@ -45,12 +45,19 @@ fn split_name_and_version(src: Option<&str>) -> Result<(String, String), ParseEr
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum UpgradeType {
+    Safe,
+    Major,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct Package {
     pub current_version: String,
     pub install_cmd: String,
     pub latest_version: String,
     pub name: String,
     pub skip: bool,
+    pub upgrade_type: UpgradeType,
     pub wanted_version: String,
 }
 
@@ -67,9 +74,19 @@ impl Package {
             UpgradeStyle::Latest => latest_version.clone(),
             UpgradeStyle::Wanted => wanted_version.clone(),
         };
-        let install_cmd = format!("{}@{}", name, upgrade_string);
 
+        let install_cmd = format!("{}@{}", name, upgrade_string);
         let skip = current_version == upgrade_string;
+        let upgrade_type = match config.upgrade_style {
+            UpgradeStyle::Wanted => UpgradeType::Safe,
+            UpgradeStyle::Latest => {
+                if wanted_version == latest_version {
+                    UpgradeType::Safe
+                } else {
+                    UpgradeType::Major
+                }
+            }
+        };
 
         Ok(Package {
             current_version,
@@ -77,6 +94,7 @@ impl Package {
             latest_version,
             name,
             skip,
+            upgrade_type,
             wanted_version,
         })
     }
@@ -186,6 +204,7 @@ mod package_tests {
         let pkg = Package::new(provided, &config)?;
 
         let expected = Package {
+            upgrade_type: UpgradeType::Safe,
             current_version: String::from("1.7.3"),
             install_cmd: String::from("myPackage@1.23.0"),
             latest_version: String::from("2.0.1"),
@@ -211,6 +230,7 @@ mod package_tests {
             latest_version: String::from("2.0.1"),
             name: String::from("myPackage"),
             skip: false,
+            upgrade_type: UpgradeType::Major,
             wanted_version: String::from("1.23.0"),
         };
         assert_eq!(pkg, expected);
@@ -231,6 +251,7 @@ mod package_tests {
             latest_version: String::from("5412.0.0"),
             name: String::from("@jonshort/cenv"),
             skip: false,
+            upgrade_type: UpgradeType::Safe,
             wanted_version: String::from("125.24567.2"),
         };
         assert_eq!(pkg, expected);
@@ -251,6 +272,7 @@ mod package_tests {
             latest_version: String::from("5412.0.0"),
             name: String::from("@jonshort/cenv"),
             skip: false,
+            upgrade_type: UpgradeType::Major,
             wanted_version: String::from("125.24567.2"),
         };
         assert_eq!(pkg, expected);
@@ -272,7 +294,30 @@ mod package_tests {
             latest_version: String::from("2.1.0"),
             name: String::from("@jonshort/cenv"),
             skip: true,
+            upgrade_type: UpgradeType::Safe,
             wanted_version: String::from("1.0.2"),
+        };
+        assert_eq!(pkg, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn expected_result_on_valid_input_6() -> Result<(), ParseError> {
+        let args = vec![String::from("--latest")];
+        let config = Config::new_from_args(args.into_iter());
+        // location:name@wanted_version:name@current_version:name@latest_version
+        let provided =
+            String::from("location:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3");
+        let pkg = Package::new(provided, &config)?;
+
+        let expected = Package {
+            current_version: String::from("1.0.2"),
+            install_cmd: String::from("@jonshort/cenv@1.0.3"),
+            latest_version: String::from("1.0.3"),
+            name: String::from("@jonshort/cenv"),
+            skip: false,
+            upgrade_type: UpgradeType::Safe,
+            wanted_version: String::from("1.0.3"),
         };
         assert_eq!(pkg, expected);
         Ok(())
