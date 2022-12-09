@@ -9,12 +9,19 @@ use emojis::{CACTUS, CROSS, DIZZY, MAGNIFYING_GLASS, POINT_RIGHT, ROCKET, TROPHY
 use package::{Package, UpgradeType};
 use utility::{print_message, Config, UpgradeStyle};
 
+#[cfg(windows)]
+pub const NPM: &'static str = "npm.cmd";
+
+#[cfg(not(windows))]
+pub const NPM: &'static str = "npm";
+
+
 fn main() {
     let config = Config::new_from_args(env::args());
 
     print_message("Checking for outdated packages...", &MAGNIFYING_GLASS);
 
-    let output = process::Command::new("npm")
+    let output = process::Command::new(NPM)
         .arg("outdated")
         .arg("--parseable")
         .output()
