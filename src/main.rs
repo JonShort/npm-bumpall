@@ -86,7 +86,7 @@ fn main() {
 
     print_message("Upgrading packages", &DIZZY);
 
-    let mut install = process::Command::new("npm")
+    let mut install = process::Command::new(NPM)
         .stdout(config.stdout_method)
         .stderr(config.stderr_method)
         .arg("i")
