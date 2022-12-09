@@ -10,10 +10,10 @@ use package::{Package, UpgradeType};
 use utility::{print_message, Config, UpgradeStyle};
 
 #[cfg(windows)]
-pub const NPM: &'static str = "npm.cmd";
+pub const NPM: & str = "npm.cmd";
 
 #[cfg(not(windows))]
-pub const NPM: &'static str = "npm";
+pub const NPM: & str = "npm";
 
 
 fn main() {
