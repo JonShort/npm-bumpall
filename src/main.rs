@@ -10,11 +10,10 @@ use package::{Package, UpgradeType};
 use utility::{print_message, Config, UpgradeStyle};
 
 #[cfg(windows)]
-pub const NPM: & str = "npm.cmd";
+pub const NPM: &str = "npm.cmd";
 
 #[cfg(not(windows))]
-pub const NPM: & str = "npm";
-
+pub const NPM: &str = "npm";
 
 fn main() {
     let config = Config::new_from_args(env::args());
