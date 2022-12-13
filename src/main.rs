@@ -2,6 +2,7 @@ use std::{env, process};
 
 mod color_codes;
 mod emojis;
+mod npm_cmd;
 mod package;
 mod utility;
 
@@ -20,16 +21,7 @@ fn main() {
 
     print_message("Checking for outdated packages...", &MAGNIFYING_GLASS);
 
-    let output = process::Command::new(NPM)
-        .arg("outdated")
-        .arg("--parseable")
-        .output()
-        .unwrap_or_else(|err| {
-            eprintln!("{}", err);
-            process::exit(70)
-        });
-
-    let output = String::from_utf8(output.stdout).unwrap_or_else(|err| {
+    let output = npm_cmd::run(&config).unwrap_or_else(|err| {
         eprintln!("{}", err);
         process::exit(70)
     });
