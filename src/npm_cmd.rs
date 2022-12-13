@@ -78,6 +78,8 @@ pub fn run(config: &Config) -> Result<String, Box<dyn Error>> {
         .arg("--parseable")
         .output()
         .unwrap_or_else(|err| {
+            // worst case scenario where they both fail just panic
+            patch_mode_cleanup().unwrap();
             eprintln!("{}", err);
             process::exit(70)
         });
