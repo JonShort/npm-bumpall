@@ -21,8 +21,14 @@ fn val_or_err<T>(opt: Option<T>) -> Result<T, ParseError> {
     }
 }
 
+const MISSING: &str = "MISSING";
+
 fn split_name_and_version(src: Option<&str>) -> Result<(String, String), ParseError> {
     let src = val_or_err(src)?;
+
+    if src == MISSING {
+        return Ok((String::from(""), String::from(MISSING)));
+    }
 
     let is_scoped_package = src.starts_with('@');
     let mut segments = src.split('@');
@@ -63,6 +69,7 @@ pub struct Package {
 
 impl Package {
     pub fn new(src: String, config: &Config) -> Result<Package, ParseError> {
+        // :name@wanted_version:MISSING:name@latest_version:project
         // location:name@wanted_version:name@current_version:name@latest_version:project
         let mut segments = src.split(':');
         let _location = val_or_err(segments.next())?;
@@ -312,6 +319,27 @@ mod package_tests {
 
         let expected = Package {
             current_version: String::from("1.0.2"),
+            install_cmd: String::from("@jonshort/cenv@1.0.3"),
+            latest_version: String::from("1.0.3"),
+            name: String::from("@jonshort/cenv"),
+            skip: false,
+            upgrade_type: UpgradeType::Safe,
+            wanted_version: String::from("1.0.3"),
+        };
+        assert_eq!(pkg, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn expected_result_on_valid_input_7() -> Result<(), ParseError> {
+        let args = vec![String::from("--latest")];
+        let config = Config::new_from_args(args.into_iter());
+        // location:name@wanted_version:MISSING:name@latest_version
+        let provided = String::from("location:@jonshort/cenv@1.0.3:MISSING:@jonshort/cenv@1.0.3");
+        let pkg = Package::new(provided, &config)?;
+
+        let expected = Package {
+            current_version: String::from("MISSING"),
             install_cmd: String::from("@jonshort/cenv@1.0.3"),
             latest_version: String::from("1.0.3"),
             name: String::from("@jonshort/cenv"),
