@@ -2,6 +2,12 @@ use std::{error::Error, fmt};
 
 use crate::utility::{Config, UpgradeStyle};
 
+#[cfg(windows)]
+pub const IS_WINDOWS: bool = true;
+
+#[cfg(not(windows))]
+pub const IS_WINDOWS: bool = false;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParseError;
 
@@ -72,6 +78,11 @@ impl Package {
         // :name@wanted_version:MISSING:name@latest_version:project
         // location:name@wanted_version:name@current_version:name@latest_version:project
         let mut segments = src.split(':');
+
+        if IS_WINDOWS {
+            segments.next();
+        }
+
         let _location = val_or_err(segments.next())?;
         let (name, wanted_version) = split_name_and_version(segments.next())?;
         let (_, current_version) = split_name_and_version(segments.next())?;
