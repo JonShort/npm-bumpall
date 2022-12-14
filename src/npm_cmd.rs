@@ -285,3 +285,51 @@ mod prefix_all_entries_with_tilde_tests {
         assert_eq!(input, expected);
     }
 }
+
+#[cfg(test)]
+mod patch_mode_init {
+    use super::*;
+    use serial_test::serial;
+    use std::{env, path::Path};
+
+    #[test]
+    #[serial]
+    fn patch_mode_init_works() {
+        let current = env::current_dir().unwrap();
+
+        env::set_current_dir("./src/test_files").unwrap();
+        patch_mode_init().unwrap();
+
+        assert_eq!(Path::new("./package.json").exists(), true);
+        assert_eq!(Path::new("./package.json.bkup").exists(), true);
+
+        fs::copy("package.json.bkup", "package.json").unwrap();
+        fs::remove_file("package.json.bkup").unwrap();
+
+        env::set_current_dir(current).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod patch_mode_cleanup {
+    use serial_test::serial;
+
+    use super::*;
+    use std::{env, path::Path};
+
+    #[test]
+    #[serial]
+    fn cleanup_files() {
+        let current = env::current_dir().unwrap();
+
+        env::set_current_dir("./src/test_files").unwrap();
+        fs::copy("package.json", "package.json.bkup").unwrap();
+
+        patch_mode_cleanup().unwrap();
+
+        assert_eq!(Path::new("./package.json").exists(), true);
+        assert_eq!(Path::new("./package.json.bkup").exists(), false);
+
+        env::set_current_dir(current).unwrap();
+    }
+}
