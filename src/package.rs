@@ -2,12 +2,6 @@ use std::{error::Error, fmt};
 
 use crate::utility::{Config, UpgradeStyle};
 
-#[cfg(windows)]
-pub const IS_WINDOWS: bool = true;
-
-#[cfg(not(windows))]
-pub const IS_WINDOWS: bool = false;
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParseError;
 
@@ -79,11 +73,16 @@ impl Package {
         // location:name@wanted_version:name@current_version:name@latest_version:project
         let mut segments = src.split(':');
 
-        if IS_WINDOWS {
-            segments.next();
-        }
+        let _location = if src.contains(":\\") {
+            format!(
+                "{}{}",
+                val_or_err(segments.next())?,
+                val_or_err(segments.next())?
+            )
+        } else {
+            val_or_err(segments.next()).unwrap().to_string()
+        };
 
-        let _location = val_or_err(segments.next())?;
         let (name, wanted_version) = split_name_and_version(segments.next())?;
         let (_, current_version) = split_name_and_version(segments.next())?;
         let (_, latest_version) = split_name_and_version(segments.next())?;
@@ -351,6 +350,29 @@ mod package_tests {
 
         let expected = Package {
             current_version: String::from("MISSING"),
+            install_cmd: String::from("@jonshort/cenv@1.0.3"),
+            latest_version: String::from("1.0.3"),
+            name: String::from("@jonshort/cenv"),
+            skip: false,
+            upgrade_type: UpgradeType::Safe,
+            wanted_version: String::from("1.0.3"),
+        };
+        assert_eq!(pkg, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn expected_result_on_valid_input_windows() -> Result<(), ParseError> {
+        let args = vec![String::from("--latest")];
+        let config = Config::new_from_args(args.into_iter());
+        // location:name@wanted_version:name@current_version:name@latest_version:project
+        let provided = String::from(
+            "D:\\git\npm:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3",
+        );
+        let pkg = Package::new(provided, &config)?;
+
+        let expected = Package {
+            current_version: String::from("1.0.2"),
             install_cmd: String::from("@jonshort/cenv@1.0.3"),
             latest_version: String::from("1.0.3"),
             name: String::from("@jonshort/cenv"),
