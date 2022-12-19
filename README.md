@@ -18,6 +18,8 @@ _Execute the binary_
 
 `--legacy-peer-deps` | `-lpd` - includes this option in the npm install under the hood
 
+`--patch` | `-p` - only include patch version updates (experimental)
+
 `--verbose` | `-vb` - include all possible messages in console output (e.g. warnings from npm itself)
 
 ## Compiling
