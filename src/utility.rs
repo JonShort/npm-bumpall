@@ -11,6 +11,7 @@ pub enum UpgradeStyle {
 pub struct Config {
     pub additional_install_args: Vec<String>,
     pub is_dry_run: bool,
+    pub is_patch_mode: bool,
     pub stderr_method: Stdio,
     pub stdout_method: Stdio,
     pub upgrade_style: UpgradeStyle,
@@ -24,12 +25,13 @@ impl PartialEq for Config {
     fn eq(&self, other: &Self) -> bool {
         let a = self.additional_install_args == other.additional_install_args;
         let dr = self.is_dry_run == other.is_dry_run;
+        let pm = self.is_patch_mode == other.is_patch_mode;
         // This doesn't effectively check anything, but better than nothing
         let e = print_type_of(&self.stderr_method) == print_type_of(&other.stderr_method);
         let o = print_type_of(&self.stdout_method) == print_type_of(&other.stdout_method);
         let u = self.upgrade_style == other.upgrade_style;
 
-        a && dr && e && o && u
+        a && dr && pm && e && o && u
     }
 }
 
@@ -42,6 +44,7 @@ impl Config {
     {
         let mut additional_install_args = vec![];
         let mut is_dry_run = false;
+        let mut is_patch_mode = false;
         let mut stderr_method = Stdio::null();
         let mut stdout_method = Stdio::null();
         let mut upgrade_style = UpgradeStyle::Wanted;
@@ -49,6 +52,11 @@ impl Config {
         for arg in args {
             if arg == "--latest" || arg == "-l" {
                 upgrade_style = UpgradeStyle::Latest;
+                continue;
+            }
+
+            if arg == "--patch" || arg == "-p" {
+                is_patch_mode = true;
                 continue;
             }
 
@@ -71,6 +79,7 @@ impl Config {
         Config {
             additional_install_args,
             is_dry_run,
+            is_patch_mode,
             stderr_method,
             stdout_method,
             upgrade_style,
@@ -93,6 +102,7 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![],
             is_dry_run: false,
+            is_patch_mode: false,
             stderr_method: Stdio::null(),
             stdout_method: Stdio::null(),
             upgrade_style: UpgradeStyle::Wanted,
@@ -109,6 +119,7 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![],
             is_dry_run: false,
+            is_patch_mode: false,
             stderr_method: Stdio::null(),
             stdout_method: Stdio::null(),
             upgrade_style: UpgradeStyle::Latest,
@@ -126,6 +137,7 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![String::from("--legacy-peer-deps")],
             is_dry_run: false,
+            is_patch_mode: false,
             stderr_method: Stdio::null(),
             stdout_method: Stdio::null(),
             upgrade_style: UpgradeStyle::Wanted,
@@ -144,6 +156,7 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![],
             is_dry_run: false,
+            is_patch_mode: false,
             stderr_method: Stdio::inherit(),
             stdout_method: Stdio::inherit(),
             upgrade_style: UpgradeStyle::Wanted,
@@ -161,6 +174,25 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![],
             is_dry_run: true,
+            is_patch_mode: false,
+            stderr_method: Stdio::null(),
+            stdout_method: Stdio::null(),
+            upgrade_style: UpgradeStyle::Wanted,
+        };
+        assert_eq!(result_a, expected);
+        assert_eq!(result_b, expected);
+    }
+
+    #[test]
+    fn handles_patch_mode_arg() {
+        let args_a = vec![String::from("--patch")];
+        let result_a = Config::new_from_args(args_a.into_iter());
+        let args_b = vec![String::from("-p")];
+        let result_b = Config::new_from_args(args_b.into_iter());
+        let expected = Config {
+            additional_install_args: vec![],
+            is_dry_run: false,
+            is_patch_mode: true,
             stderr_method: Stdio::null(),
             stdout_method: Stdio::null(),
             upgrade_style: UpgradeStyle::Wanted,
@@ -173,6 +205,7 @@ mod config_tests {
     fn handles_combo_args() {
         let args_a = vec![
             String::from("--latest"),
+            String::from("--patch"),
             String::from("--verbose"),
             String::from("-dr"),
             String::from("-lpd"),
@@ -182,12 +215,14 @@ mod config_tests {
             String::from("--dry-run"),
             String::from("--legacy-peer-deps"),
             String::from("-l"),
+            String::from("-p"),
             String::from("-vb"),
         ];
         let result_b = Config::new_from_args(args_b.into_iter());
         let expected = Config {
             additional_install_args: vec![String::from("--legacy-peer-deps")],
             is_dry_run: true,
+            is_patch_mode: true,
             stderr_method: Stdio::inherit(),
             stdout_method: Stdio::inherit(),
             upgrade_style: UpgradeStyle::Latest,
