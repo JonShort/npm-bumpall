@@ -93,6 +93,8 @@ pub fn run(config: &Config) -> Result<String, Box<dyn Error>> {
     Ok(output)
 }
 
+// Tests --------------------------------------------------------------
+
 #[cfg(test)]
 mod prefix_with_tilde_tests {
     use super::*;
