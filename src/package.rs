@@ -181,8 +181,8 @@ mod split_name_and_version_tests {
 #[cfg(test)]
 mod package_tests {
     use super::*;
+    use serial_test::serial;
     use std::env;
-    use serial_test::{serial};
 
     #[test]
     fn err_result_on_empty_string() {
