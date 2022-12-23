@@ -9,8 +9,6 @@
   "author": "",
   "license": "ISC",
   "workspaces": [
-    "a",
-    "b",
     "workspaces/a",
     "workspaces/b"
   ],
