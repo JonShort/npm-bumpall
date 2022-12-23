@@ -1,4 +1,5 @@
 use std::any::type_name;
+use std::env::current_dir;
 use std::process::Stdio;
 
 #[derive(PartialEq, Eq, Debug)]
@@ -10,6 +11,7 @@ pub enum UpgradeStyle {
 #[derive(Debug)]
 pub struct Config {
     pub additional_install_args: Vec<String>,
+    pub current_dir_name: Option<String>,
     pub is_dry_run: bool,
     pub is_patch_mode: bool,
     pub stderr_method: Stdio,
@@ -24,6 +26,7 @@ fn print_type_of<T>(_: &T) -> &str {
 impl PartialEq for Config {
     fn eq(&self, other: &Self) -> bool {
         let a = self.additional_install_args == other.additional_install_args;
+        let cdr = self.current_dir_name == other.current_dir_name;
         let dr = self.is_dry_run == other.is_dry_run;
         let pm = self.is_patch_mode == other.is_patch_mode;
         // This doesn't effectively check anything, but better than nothing
@@ -31,7 +34,7 @@ impl PartialEq for Config {
         let o = print_type_of(&self.stdout_method) == print_type_of(&other.stdout_method);
         let u = self.upgrade_style == other.upgrade_style;
 
-        a && dr && pm && e && o && u
+        a && cdr && dr && pm && e && o && u
     }
 }
 
@@ -76,8 +79,14 @@ impl Config {
             }
         }
 
+        let current_dir_name = match current_dir().unwrap_or_default().file_name() {
+            Some(d) => d.to_str().map(String::from),
+            None => None,
+        };
+
         Config {
             additional_install_args,
+            current_dir_name,
             is_dry_run,
             is_patch_mode,
             stderr_method,
@@ -92,15 +101,22 @@ pub fn print_message(message: &str, emoji: &char) {
     println!();
 }
 
+// Tests --------------------------------------------------------------
+
 #[cfg(test)]
 mod config_tests {
     use super::*;
+    use serial_test::{parallel, serial};
+    use std::env;
+
     #[test]
+    #[parallel]
     fn default_on_no_args() {
         let args = vec![];
         let result = Config::new_from_args(args.into_iter());
         let expected = Config {
             additional_install_args: vec![],
+            current_dir_name: Some(String::from("npm-bumpall")),
             is_dry_run: false,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
@@ -111,6 +127,7 @@ mod config_tests {
     }
 
     #[test]
+    #[parallel]
     fn handles_latest_arg() {
         let args_a = vec![String::from("--latest")];
         let result_a = Config::new_from_args(args_a.into_iter());
@@ -118,6 +135,7 @@ mod config_tests {
         let result_b = Config::new_from_args(args_b.into_iter());
         let expected = Config {
             additional_install_args: vec![],
+            current_dir_name: Some(String::from("npm-bumpall")),
             is_dry_run: false,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
@@ -129,6 +147,7 @@ mod config_tests {
     }
 
     #[test]
+    #[parallel]
     fn handles_legacy_deps_arg() {
         let args_a = vec![String::from("--legacy-peer-deps")];
         let result_a = Config::new_from_args(args_a.into_iter());
@@ -136,6 +155,7 @@ mod config_tests {
         let result_b = Config::new_from_args(args_b.into_iter());
         let expected = Config {
             additional_install_args: vec![String::from("--legacy-peer-deps")],
+            current_dir_name: Some(String::from("npm-bumpall")),
             is_dry_run: false,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
@@ -148,6 +168,7 @@ mod config_tests {
 
     // doesn't actually check the value at the moment, but have left it here for completeness
     #[test]
+    #[parallel]
     fn handles_verbose_arg() {
         let args_a = vec![String::from("--verbose")];
         let result_a = Config::new_from_args(args_a.into_iter());
@@ -155,6 +176,7 @@ mod config_tests {
         let result_b = Config::new_from_args(args_b.into_iter());
         let expected = Config {
             additional_install_args: vec![],
+            current_dir_name: Some(String::from("npm-bumpall")),
             is_dry_run: false,
             is_patch_mode: false,
             stderr_method: Stdio::inherit(),
@@ -166,6 +188,7 @@ mod config_tests {
     }
 
     #[test]
+    #[parallel]
     fn handles_dry_run_arg() {
         let args_a = vec![String::from("--dry-run")];
         let result_a = Config::new_from_args(args_a.into_iter());
@@ -173,6 +196,7 @@ mod config_tests {
         let result_b = Config::new_from_args(args_b.into_iter());
         let expected = Config {
             additional_install_args: vec![],
+            current_dir_name: Some(String::from("npm-bumpall")),
             is_dry_run: true,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
@@ -184,6 +208,29 @@ mod config_tests {
     }
 
     #[test]
+    #[serial]
+    fn handles_running_dir() {
+        let current = env::current_dir().unwrap();
+        env::set_current_dir("./src/test_files").unwrap();
+
+        let args = vec![];
+        let result = Config::new_from_args(args.into_iter());
+        let expected = Config {
+            additional_install_args: vec![],
+            current_dir_name: Some(String::from("test_files")),
+            is_dry_run: false,
+            is_patch_mode: false,
+            stderr_method: Stdio::null(),
+            stdout_method: Stdio::null(),
+            upgrade_style: UpgradeStyle::Wanted,
+        };
+
+        assert_eq!(result, expected);
+        env::set_current_dir(current).unwrap();
+    }
+
+    #[test]
+    #[parallel]
     fn handles_patch_mode_arg() {
         let args_a = vec![String::from("--patch")];
         let result_a = Config::new_from_args(args_a.into_iter());
@@ -191,6 +238,7 @@ mod config_tests {
         let result_b = Config::new_from_args(args_b.into_iter());
         let expected = Config {
             additional_install_args: vec![],
+            current_dir_name: Some(String::from("npm-bumpall")),
             is_dry_run: false,
             is_patch_mode: true,
             stderr_method: Stdio::null(),
@@ -202,6 +250,7 @@ mod config_tests {
     }
 
     #[test]
+    #[parallel]
     fn handles_combo_args() {
         let args_a = vec![
             String::from("--latest"),
@@ -221,6 +270,7 @@ mod config_tests {
         let result_b = Config::new_from_args(args_b.into_iter());
         let expected = Config {
             additional_install_args: vec![String::from("--legacy-peer-deps")],
+            current_dir_name: Some(String::from("npm-bumpall")),
             is_dry_run: true,
             is_patch_mode: true,
             stderr_method: Stdio::inherit(),
