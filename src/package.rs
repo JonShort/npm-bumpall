@@ -311,26 +311,34 @@ mod package_tests {
     }
 
     #[test]
+    #[serial]
     fn expected_result_on_valid_input_5() -> Result<(), ParseError> {
+        // worth setting the dir here as we need to ensure skip is true because of dep range
+        let current = env::current_dir().unwrap();
+        env::set_current_dir("./src/test_files").unwrap();
+
         let args = vec![];
         let config = Config::new_from_args(args.into_iter());
         // location:name@wanted_version:name@current_version:name@latest_version
         let provided = String::from(
-            "location:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.2:@jonshort/cenv@2.1.0:!\"£$%",
+            "location:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.2:@jonshort/cenv@2.1.0:test_files",
         );
         let pkg = Package::new(provided, &config)?;
 
         let expected = Package {
             current_version: String::from("1.0.2"),
             install_cmd: String::from("@jonshort/cenv@1.0.2"),
-            install_dir_name: String::from("!\"£$%"),
+            install_dir_name: String::from("test_files"),
             latest_version: String::from("2.1.0"),
             name: String::from("@jonshort/cenv"),
             skip: true,
             upgrade_type: UpgradeType::Safe,
             wanted_version: String::from("1.0.2"),
         };
+
         assert_eq!(pkg, expected);
+
+        env::set_current_dir(current).unwrap();
         Ok(())
     }
 
