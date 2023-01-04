@@ -89,7 +89,7 @@ impl Package {
         let (name, wanted_version) = split_name_and_version(segments.next())?;
         let (_, current_version) = split_name_and_version(segments.next())?;
         let (_, latest_version) = split_name_and_version(segments.next())?;
-        let install_dir_name: String = segments.collect::<Vec<&str>>().join(":");
+        let install_dir_name: String = segments.collect::<Vec<&str>>().join(":").trim().to_owned();
 
         let upgrade_string = match config.upgrade_style {
             UpgradeStyle::Latest => latest_version.clone(),
@@ -422,8 +422,9 @@ mod package_tests {
         let args = vec![String::from("--latest")];
         let config = Config::new_from_args(args.into_iter());
         // location:name@wanted_version:name@current_version:name@latest_version:project
+        // Also included \r which can be included on windows for some reason
         let provided = String::from(
-            "D:\\git\npm:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3:test_files",
+            "D:\\git\npm:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3:test_files\r",
         );
         let pkg = Package::new(provided, &config)?;
 
