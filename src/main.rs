@@ -1,4 +1,4 @@
-use std::process::{self};
+use std::process;
 
 mod color_codes;
 mod emojis;

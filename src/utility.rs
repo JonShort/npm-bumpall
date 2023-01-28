@@ -14,7 +14,7 @@ pub struct Args {
     ///Update to latest patch version only
     pub patch: bool,
 
-    #[arg(short = 'o', long)]
+    #[arg(long)]
     ///Apply --legacy-peer-deps to npm install
     pub legacy_peer_deps: bool,
 
