@@ -1,4 +1,4 @@
-use std::{env, process};
+use std::process;
 
 mod color_codes;
 mod emojis;
@@ -17,7 +17,7 @@ pub const NPM: &str = "npm.cmd";
 pub const NPM: &str = "npm";
 
 fn main() {
-    let config = Config::new_from_args(env::args());
+    let config = Config::create_config();
 
     print_message("Checking for outdated packages...", &MAGNIFYING_GLASS);
 

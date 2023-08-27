@@ -180,14 +180,15 @@ mod split_name_and_version_tests {
 
 #[cfg(test)]
 mod package_tests {
+    use crate::utility::Args;
+
     use super::*;
     use serial_test::serial;
     use std::env;
 
     #[test]
     fn err_result_on_empty_string() {
-        let args = vec![];
-        let config = Config::new_from_args(args.into_iter());
+        let config = Config::new_from_args(Args::default());
         let pkg = Package::new(String::from(""), &config);
 
         assert_eq!(pkg, Err(ParseError))
@@ -212,8 +213,7 @@ mod package_tests {
         ];
 
         for case in test_cases {
-            let args = vec![];
-            let config = Config::new_from_args(args.into_iter());
+            let config = Config::new_from_args(Args::default());
             let pkg = Package::new(case, &config);
 
             assert_eq!(pkg, Err(ParseError))
@@ -222,8 +222,7 @@ mod package_tests {
 
     #[test]
     fn expected_result_on_valid_input_1() -> Result<(), ParseError> {
-        let args = vec![];
-        let config = Config::new_from_args(args.into_iter());
+        let config = Config::new_from_args(Args::default());
         // location:name@wanted_version:name@current_version:name@latest_version
         let provided =
             String::from("location:myPackage@1.23.0:myPackage@1.7.3:myPackage@2.0.1:my_dir");
@@ -245,8 +244,10 @@ mod package_tests {
 
     #[test]
     fn expected_result_on_valid_input_2() -> Result<(), ParseError> {
-        let args = vec![String::from("--latest")];
-        let config = Config::new_from_args(args.into_iter());
+        let config = Config::new_from_args(Args {
+            latest: true,
+            ..Args::default()
+        });
         // location:name@wanted_version:name@current_version:name@latest_version
         let provided =
             String::from("location:myPackage@1.23.0:myPackage@1.7.3:myPackage@2.0.1:dirNameThing");
@@ -268,8 +269,7 @@ mod package_tests {
 
     #[test]
     fn expected_result_on_valid_input_3() -> Result<(), ParseError> {
-        let args = vec![];
-        let config = Config::new_from_args(args.into_iter());
+        let config = Config::new_from_args(Args::default());
         // location:name@wanted_version:name@current_version:name@latest_version
         let provided = String::from("location:@jonshort/cenv@125.24567.2:@jonshort/cenv@125.24222.1:@jonshort/cenv@5412.0.0:my-dir_with:special chars");
         let pkg = Package::new(provided, &config)?;
@@ -290,8 +290,10 @@ mod package_tests {
 
     #[test]
     fn expected_result_on_valid_input_4() -> Result<(), ParseError> {
-        let args = vec![String::from("--latest")];
-        let config = Config::new_from_args(args.into_iter());
+        let config = Config::new_from_args(Args {
+            latest: true,
+            ..Args::default()
+        });
         // location:name@wanted_version:name@current_version:name@latest_version
         let provided = String::from("location:@jonshort/cenv@125.24567.2:@jonshort/cenv@125.24222.1:@jonshort/cenv@5412.0.0:a");
         let pkg = Package::new(provided, &config)?;
@@ -317,8 +319,7 @@ mod package_tests {
         let current = env::current_dir().unwrap();
         env::set_current_dir("./src/test_files").unwrap();
 
-        let args = vec![];
-        let config = Config::new_from_args(args.into_iter());
+        let config = Config::new_from_args(Args { ..Args::default() });
         // location:name@wanted_version:name@current_version:name@latest_version
         let provided = String::from(
             "location:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.2:@jonshort/cenv@2.1.0:test_files",
@@ -344,8 +345,10 @@ mod package_tests {
 
     #[test]
     fn expected_result_on_valid_input_6() -> Result<(), ParseError> {
-        let args = vec![String::from("--latest")];
-        let config = Config::new_from_args(args.into_iter());
+        let config = Config::new_from_args(Args {
+            latest: true,
+            ..Args::default()
+        });
         // location:name@wanted_version:name@current_version:name@latest_version
         let provided = String::from(
             "location:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3:[]{}()dir*",
@@ -368,8 +371,10 @@ mod package_tests {
 
     #[test]
     fn expected_result_on_valid_input_7() -> Result<(), ParseError> {
-        let args = vec![String::from("--latest")];
-        let config = Config::new_from_args(args.into_iter());
+        let config = Config::new_from_args(Args {
+            latest: true,
+            ..Args::default()
+        });
         // location:name@wanted_version:MISSING:name@latest_version
         let provided =
             String::from("location:@jonshort/cenv@1.0.3:MISSING:@jonshort/cenv@1.0.3:\\|~#;<>");
@@ -391,8 +396,10 @@ mod package_tests {
 
     #[test]
     fn expected_result_on_valid_input_windows() -> Result<(), ParseError> {
-        let args = vec![String::from("--latest")];
-        let config = Config::new_from_args(args.into_iter());
+        let config = Config::new_from_args(Args {
+            latest: true,
+            ..Args::default()
+        });
         // location:name@wanted_version:name@current_version:name@latest_version:project
         let provided = String::from(
             "D:\\git\npm:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3:a",
@@ -419,8 +426,10 @@ mod package_tests {
         let current = env::current_dir().unwrap();
         env::set_current_dir("./src/test_files").unwrap();
 
-        let args = vec![String::from("--latest")];
-        let config = Config::new_from_args(args.into_iter());
+        let config = Config::new_from_args(Args {
+            latest: true,
+            ..Args::default()
+        });
         // location:name@wanted_version:name@current_version:name@latest_version:project
         // Also included \r which can be included on windows for some reason
         let provided = String::from(

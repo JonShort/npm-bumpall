@@ -1,6 +1,32 @@
+use clap::Parser;
 use std::any::type_name;
 use std::env::current_dir;
 use std::process::Stdio;
+
+/// Utility to bump npm packages, by default to the latest minor version.
+#[derive(Parser, Debug, Default)]
+#[command(author, version, about, long_about = None)]
+pub struct Args {
+    ///Bump dependencies to latest possible version (includes major changes)
+    #[arg(short, long)]
+    pub latest: bool,
+
+    #[arg(short, long)]
+    ///Update to latest patch version only
+    pub patch: bool,
+
+    #[arg(long)]
+    ///Apply --legacy-peer-deps to npm install
+    pub legacy_peer_deps: bool,
+
+    #[arg(short, long)]
+    ///Include all possible messages in console output (e.g. warnings from npm itself)
+    pub verbose: bool,
+
+    #[arg(short, long)]
+    ///List dependencies which would be bumped, but don't update them
+    pub dry_run: bool,
+}
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum UpgradeStyle {
@@ -39,44 +65,28 @@ impl PartialEq for Config {
 }
 
 impl Config {
-    /// Accepts a list of arguments, usually an [Args][std::env::Args] struct
-    /// sourced from the [std::env::args] function.
-    pub fn new_from_args<T>(args: T) -> Config
-    where
-        T: Iterator<Item = String>,
-    {
+    pub fn create_config() -> Config {
+        let args = Args::parse();
+        Self::new_from_args(args)
+    }
+
+    pub fn new_from_args(args: Args) -> Config {
         let mut additional_install_args = vec![];
-        let mut is_dry_run = false;
-        let mut is_patch_mode = false;
         let mut stderr_method = Stdio::null();
         let mut stdout_method = Stdio::null();
         let mut upgrade_style = UpgradeStyle::Wanted;
 
-        for arg in args {
-            if arg == "--latest" || arg == "-l" {
-                upgrade_style = UpgradeStyle::Latest;
-                continue;
-            }
+        if args.latest {
+            upgrade_style = UpgradeStyle::Latest;
+        }
 
-            if arg == "--patch" || arg == "-p" {
-                is_patch_mode = true;
-                continue;
-            }
+        if args.verbose {
+            stdout_method = Stdio::inherit();
+            stderr_method = Stdio::inherit();
+        }
 
-            if arg == "--legacy-peer-deps" || arg == "-lpd" {
-                additional_install_args.push(String::from("--legacy-peer-deps"));
-                continue;
-            }
-
-            if arg == "--verbose" || arg == "-vb" {
-                stdout_method = Stdio::inherit();
-                stderr_method = Stdio::inherit();
-                continue;
-            }
-
-            if arg == "--dry-run" || arg == "-dr" {
-                is_dry_run = true;
-            }
+        if args.legacy_peer_deps {
+            additional_install_args.push(String::from("--legacy-peer-deps"));
         }
 
         let current_dir_name = match current_dir().unwrap_or_default().file_name() {
@@ -87,8 +97,8 @@ impl Config {
         Config {
             additional_install_args,
             current_dir_name,
-            is_dry_run,
-            is_patch_mode,
+            is_dry_run: args.dry_run,
+            is_patch_mode: args.patch,
             stderr_method,
             stdout_method,
             upgrade_style,
@@ -111,9 +121,16 @@ mod config_tests {
 
     #[test]
     #[parallel]
+    fn verify_cli() {
+        use clap::CommandFactory;
+        Args::command().debug_assert()
+    }
+
+    #[test]
+    #[parallel]
     fn default_on_no_args() {
-        let args = vec![];
-        let result = Config::new_from_args(args.into_iter());
+        let args = Args::default();
+        let result = Config::new_from_args(args);
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
@@ -129,10 +146,11 @@ mod config_tests {
     #[test]
     #[parallel]
     fn handles_latest_arg() {
-        let args_a = vec![String::from("--latest")];
-        let result_a = Config::new_from_args(args_a.into_iter());
-        let args_b = vec![String::from("-l")];
-        let result_b = Config::new_from_args(args_b.into_iter());
+        let args_a = Args {
+            latest: true,
+            ..Args::default()
+        };
+        let result_a = Config::new_from_args(args_a);
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
@@ -143,16 +161,16 @@ mod config_tests {
             upgrade_style: UpgradeStyle::Latest,
         };
         assert_eq!(result_a, expected);
-        assert_eq!(result_b, expected);
     }
 
     #[test]
     #[parallel]
     fn handles_legacy_deps_arg() {
-        let args_a = vec![String::from("--legacy-peer-deps")];
-        let result_a = Config::new_from_args(args_a.into_iter());
-        let args_b = vec![String::from("-lpd")];
-        let result_b = Config::new_from_args(args_b.into_iter());
+        let args_a = Args {
+            legacy_peer_deps: true,
+            ..Args::default()
+        };
+        let result_a = Config::new_from_args(args_a);
         let expected = Config {
             additional_install_args: vec![String::from("--legacy-peer-deps")],
             current_dir_name: Some(String::from("npm-bumpall")),
@@ -163,17 +181,17 @@ mod config_tests {
             upgrade_style: UpgradeStyle::Wanted,
         };
         assert_eq!(result_a, expected);
-        assert_eq!(result_b, expected);
     }
 
     // doesn't actually check the value at the moment, but have left it here for completeness
     #[test]
     #[parallel]
     fn handles_verbose_arg() {
-        let args_a = vec![String::from("--verbose")];
-        let result_a = Config::new_from_args(args_a.into_iter());
-        let args_b = vec![String::from("-vb")];
-        let result_b = Config::new_from_args(args_b.into_iter());
+        let args_a = Args {
+            verbose: true,
+            ..Args::default()
+        };
+        let result_a = Config::new_from_args(args_a);
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
@@ -184,16 +202,16 @@ mod config_tests {
             upgrade_style: UpgradeStyle::Wanted,
         };
         assert_eq!(result_a, expected);
-        assert_eq!(result_b, expected);
     }
 
     #[test]
     #[parallel]
     fn handles_dry_run_arg() {
-        let args_a = vec![String::from("--dry-run")];
-        let result_a = Config::new_from_args(args_a.into_iter());
-        let args_b = vec![String::from("-dr")];
-        let result_b = Config::new_from_args(args_b.into_iter());
+        let args_a = Args {
+            dry_run: true,
+            ..Args::default()
+        };
+        let result_a = Config::new_from_args(args_a);
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
@@ -204,7 +222,6 @@ mod config_tests {
             upgrade_style: UpgradeStyle::Wanted,
         };
         assert_eq!(result_a, expected);
-        assert_eq!(result_b, expected);
     }
 
     #[test]
@@ -213,8 +230,7 @@ mod config_tests {
         let current = env::current_dir().unwrap();
         env::set_current_dir("./src/test_files").unwrap();
 
-        let args = vec![];
-        let result = Config::new_from_args(args.into_iter());
+        let result = Config::new_from_args(Args { ..Args::default() });
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("test_files")),
@@ -232,10 +248,11 @@ mod config_tests {
     #[test]
     #[parallel]
     fn handles_patch_mode_arg() {
-        let args_a = vec![String::from("--patch")];
-        let result_a = Config::new_from_args(args_a.into_iter());
-        let args_b = vec![String::from("-p")];
-        let result_b = Config::new_from_args(args_b.into_iter());
+        let args_a = Args {
+            patch: true,
+            ..Args::default()
+        };
+        let result_a = Config::new_from_args(args_a);
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
@@ -246,28 +263,19 @@ mod config_tests {
             upgrade_style: UpgradeStyle::Wanted,
         };
         assert_eq!(result_a, expected);
-        assert_eq!(result_b, expected);
     }
 
     #[test]
     #[parallel]
     fn handles_combo_args() {
-        let args_a = vec![
-            String::from("--latest"),
-            String::from("--patch"),
-            String::from("--verbose"),
-            String::from("-dr"),
-            String::from("-lpd"),
-        ];
-        let result_a = Config::new_from_args(args_a.into_iter());
-        let args_b = vec![
-            String::from("--dry-run"),
-            String::from("--legacy-peer-deps"),
-            String::from("-l"),
-            String::from("-p"),
-            String::from("-vb"),
-        ];
-        let result_b = Config::new_from_args(args_b.into_iter());
+        let args_a = Args {
+            latest: true,
+            patch: true,
+            verbose: true,
+            dry_run: true,
+            legacy_peer_deps: true,
+        };
+        let result_a = Config::new_from_args(args_a);
         let expected = Config {
             additional_install_args: vec![String::from("--legacy-peer-deps")],
             current_dir_name: Some(String::from("npm-bumpall")),
@@ -278,6 +286,5 @@ mod config_tests {
             upgrade_style: UpgradeStyle::Latest,
         };
         assert_eq!(result_a, expected);
-        assert_eq!(result_b, expected);
     }
 }
