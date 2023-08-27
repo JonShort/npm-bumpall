@@ -93,6 +93,8 @@ pub fn run(config: &Config) -> Result<String, Box<dyn Error>> {
     Ok(output)
 }
 
+// Tests --------------------------------------------------------------
+
 #[cfg(test)]
 mod prefix_with_tilde_tests {
     use super::*;
@@ -287,7 +289,7 @@ mod prefix_all_entries_with_tilde_tests {
 }
 
 #[cfg(test)]
-mod patch_mode_init {
+mod patch_mode_init_tests {
     use super::*;
     use serial_test::serial;
     use std::{env, path::Path};
@@ -300,8 +302,8 @@ mod patch_mode_init {
         env::set_current_dir("./src/test_files").unwrap();
         patch_mode_init().unwrap();
 
-        assert_eq!(Path::new("./package.json").exists(), true);
-        assert_eq!(Path::new("./package.json.bkup").exists(), true);
+        assert!(Path::new("./package.json").exists());
+        assert!(Path::new("./package.json.bkup").exists());
 
         fs::copy("package.json.bkup", "package.json").unwrap();
         fs::remove_file("package.json.bkup").unwrap();
@@ -311,7 +313,7 @@ mod patch_mode_init {
 }
 
 #[cfg(test)]
-mod patch_mode_cleanup {
+mod patch_mode_cleanup_tests {
     use serial_test::serial;
 
     use super::*;
@@ -327,8 +329,8 @@ mod patch_mode_cleanup {
 
         patch_mode_cleanup().unwrap();
 
-        assert_eq!(Path::new("./package.json").exists(), true);
-        assert_eq!(Path::new("./package.json.bkup").exists(), false);
+        assert!(Path::new("./package.json").exists());
+        assert!(!Path::new("./package.json.bkup").exists());
 
         env::set_current_dir(current).unwrap();
     }

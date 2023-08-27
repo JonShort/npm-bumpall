@@ -60,6 +60,7 @@ pub enum UpgradeType {
 pub struct Package {
     pub current_version: String,
     pub install_cmd: String,
+    pub install_dir_name: String,
     pub latest_version: String,
     pub name: String,
     pub skip: bool,
@@ -73,9 +74,11 @@ impl Package {
         // location:name@wanted_version:name@current_version:name@latest_version:project
         let mut segments = src.split(':');
 
-        let _location = if src.contains(":\\") {
+        // On windows, the location starts with drive information, e.g. D:\\windows\dir
+        // This clashes with the split on ":", so we handle this separately
+        let _location = if src.len() > 4 && &src[1..3] == ":\\" {
             format!(
-                "{}{}",
+                "{}:{}",
                 val_or_err(segments.next())?,
                 val_or_err(segments.next())?
             )
@@ -86,6 +89,7 @@ impl Package {
         let (name, wanted_version) = split_name_and_version(segments.next())?;
         let (_, current_version) = split_name_and_version(segments.next())?;
         let (_, latest_version) = split_name_and_version(segments.next())?;
+        let install_dir_name: String = segments.collect::<Vec<&str>>().join(":").trim().to_owned();
 
         let upgrade_string = match config.upgrade_style {
             UpgradeStyle::Latest => latest_version.clone(),
@@ -93,7 +97,8 @@ impl Package {
         };
 
         let install_cmd = format!("{}@{}", name, upgrade_string);
-        let skip = current_version == upgrade_string;
+        let is_probably_workspace_dep = Some(install_dir_name.clone()) != config.current_dir_name;
+        let skip = current_version == upgrade_string || is_probably_workspace_dep;
         let upgrade_type = match config.upgrade_style {
             UpgradeStyle::Wanted => UpgradeType::Safe,
             UpgradeStyle::Latest => {
@@ -108,6 +113,7 @@ impl Package {
         Ok(Package {
             current_version,
             install_cmd,
+            install_dir_name,
             latest_version,
             name,
             skip,
@@ -177,6 +183,8 @@ mod package_tests {
     use crate::utility::Args;
 
     use super::*;
+    use serial_test::serial;
+    use std::env;
 
     #[test]
     fn err_result_on_empty_string() {
@@ -216,16 +224,18 @@ mod package_tests {
     fn expected_result_on_valid_input_1() -> Result<(), ParseError> {
         let config = Config::new_from_args(Args::default());
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided = String::from("location:myPackage@1.23.0:myPackage@1.7.3:myPackage@2.0.1");
+        let provided =
+            String::from("location:myPackage@1.23.0:myPackage@1.7.3:myPackage@2.0.1:my_dir");
         let pkg = Package::new(provided, &config)?;
 
         let expected = Package {
-            upgrade_type: UpgradeType::Safe,
             current_version: String::from("1.7.3"),
             install_cmd: String::from("myPackage@1.23.0"),
+            install_dir_name: String::from("my_dir"),
             latest_version: String::from("2.0.1"),
             name: String::from("myPackage"),
-            skip: false,
+            skip: true,
+            upgrade_type: UpgradeType::Safe,
             wanted_version: String::from("1.23.0"),
         };
         assert_eq!(pkg, expected);
@@ -239,15 +249,17 @@ mod package_tests {
             ..Args::default()
         });
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided = String::from("location:myPackage@1.23.0:myPackage@1.7.3:myPackage@2.0.1");
+        let provided =
+            String::from("location:myPackage@1.23.0:myPackage@1.7.3:myPackage@2.0.1:dirNameThing");
         let pkg = Package::new(provided, &config)?;
 
         let expected = Package {
             current_version: String::from("1.7.3"),
             install_cmd: String::from("myPackage@2.0.1"),
+            install_dir_name: String::from("dirNameThing"),
             latest_version: String::from("2.0.1"),
             name: String::from("myPackage"),
-            skip: false,
+            skip: true,
             upgrade_type: UpgradeType::Major,
             wanted_version: String::from("1.23.0"),
         };
@@ -259,15 +271,16 @@ mod package_tests {
     fn expected_result_on_valid_input_3() -> Result<(), ParseError> {
         let config = Config::new_from_args(Args::default());
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided = String::from("location:@jonshort/cenv@125.24567.2:@jonshort/cenv@125.24222.1:@jonshort/cenv@5412.0.0");
+        let provided = String::from("location:@jonshort/cenv@125.24567.2:@jonshort/cenv@125.24222.1:@jonshort/cenv@5412.0.0:my-dir_with:special chars");
         let pkg = Package::new(provided, &config)?;
 
         let expected = Package {
             current_version: String::from("125.24222.1"),
             install_cmd: String::from("@jonshort/cenv@125.24567.2"),
+            install_dir_name: String::from("my-dir_with:special chars"),
             latest_version: String::from("5412.0.0"),
             name: String::from("@jonshort/cenv"),
-            skip: false,
+            skip: true,
             upgrade_type: UpgradeType::Safe,
             wanted_version: String::from("125.24567.2"),
         };
@@ -282,15 +295,16 @@ mod package_tests {
             ..Args::default()
         });
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided = String::from("location:@jonshort/cenv@125.24567.2:@jonshort/cenv@125.24222.1:@jonshort/cenv@5412.0.0");
+        let provided = String::from("location:@jonshort/cenv@125.24567.2:@jonshort/cenv@125.24222.1:@jonshort/cenv@5412.0.0:a");
         let pkg = Package::new(provided, &config)?;
 
         let expected = Package {
             current_version: String::from("125.24222.1"),
             install_cmd: String::from("@jonshort/cenv@5412.0.0"),
+            install_dir_name: String::from("a"),
             latest_version: String::from("5412.0.0"),
             name: String::from("@jonshort/cenv"),
-            skip: false,
+            skip: true,
             upgrade_type: UpgradeType::Major,
             wanted_version: String::from("125.24567.2"),
         };
@@ -299,23 +313,33 @@ mod package_tests {
     }
 
     #[test]
+    #[serial]
     fn expected_result_on_valid_input_5() -> Result<(), ParseError> {
-        let config = Config::new_from_args(Args::default());
+        // worth setting the dir here as we need to ensure skip is true because of dep range
+        let current = env::current_dir().unwrap();
+        env::set_current_dir("./src/test_files").unwrap();
+
+        let config = Config::new_from_args(Args { ..Args::default() });
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided =
-            String::from("location:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.2:@jonshort/cenv@2.1.0");
+        let provided = String::from(
+            "location:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.2:@jonshort/cenv@2.1.0:test_files",
+        );
         let pkg = Package::new(provided, &config)?;
 
         let expected = Package {
             current_version: String::from("1.0.2"),
             install_cmd: String::from("@jonshort/cenv@1.0.2"),
+            install_dir_name: String::from("test_files"),
             latest_version: String::from("2.1.0"),
             name: String::from("@jonshort/cenv"),
             skip: true,
             upgrade_type: UpgradeType::Safe,
             wanted_version: String::from("1.0.2"),
         };
+
         assert_eq!(pkg, expected);
+
+        env::set_current_dir(current).unwrap();
         Ok(())
     }
 
@@ -326,16 +350,18 @@ mod package_tests {
             ..Args::default()
         });
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided =
-            String::from("location:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3");
+        let provided = String::from(
+            "location:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3:[]{}()dir*",
+        );
         let pkg = Package::new(provided, &config)?;
 
         let expected = Package {
             current_version: String::from("1.0.2"),
             install_cmd: String::from("@jonshort/cenv@1.0.3"),
+            install_dir_name: String::from("[]{}()dir*"),
             latest_version: String::from("1.0.3"),
             name: String::from("@jonshort/cenv"),
-            skip: false,
+            skip: true,
             upgrade_type: UpgradeType::Safe,
             wanted_version: String::from("1.0.3"),
         };
@@ -350,15 +376,17 @@ mod package_tests {
             ..Args::default()
         });
         // location:name@wanted_version:MISSING:name@latest_version
-        let provided = String::from("location:@jonshort/cenv@1.0.3:MISSING:@jonshort/cenv@1.0.3");
+        let provided =
+            String::from("location:@jonshort/cenv@1.0.3:MISSING:@jonshort/cenv@1.0.3:\\|~#;<>");
         let pkg = Package::new(provided, &config)?;
 
         let expected = Package {
             current_version: String::from("MISSING"),
             install_cmd: String::from("@jonshort/cenv@1.0.3"),
+            install_dir_name: String::from("\\|~#;<>"),
             latest_version: String::from("1.0.3"),
             name: String::from("@jonshort/cenv"),
-            skip: false,
+            skip: true,
             upgrade_type: UpgradeType::Safe,
             wanted_version: String::from("1.0.3"),
         };
@@ -374,13 +402,45 @@ mod package_tests {
         });
         // location:name@wanted_version:name@current_version:name@latest_version:project
         let provided = String::from(
-            "D:\\git\npm:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3",
+            "D:\\git\npm:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3:a",
         );
         let pkg = Package::new(provided, &config)?;
 
         let expected = Package {
             current_version: String::from("1.0.2"),
             install_cmd: String::from("@jonshort/cenv@1.0.3"),
+            install_dir_name: String::from("a"),
+            latest_version: String::from("1.0.3"),
+            name: String::from("@jonshort/cenv"),
+            skip: true,
+            upgrade_type: UpgradeType::Safe,
+            wanted_version: String::from("1.0.3"),
+        };
+        assert_eq!(pkg, expected);
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn does_not_skip_direct_dep() -> Result<(), ParseError> {
+        let current = env::current_dir().unwrap();
+        env::set_current_dir("./src/test_files").unwrap();
+
+        let config = Config::new_from_args(Args {
+            latest: true,
+            ..Args::default()
+        });
+        // location:name@wanted_version:name@current_version:name@latest_version:project
+        // Also included \r which can be included on windows for some reason
+        let provided = String::from(
+            "D:\\git\npm:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3:test_files\r",
+        );
+        let pkg = Package::new(provided, &config)?;
+
+        let expected = Package {
+            current_version: String::from("1.0.2"),
+            install_cmd: String::from("@jonshort/cenv@1.0.3"),
+            install_dir_name: String::from("test_files"),
             latest_version: String::from("1.0.3"),
             name: String::from("@jonshort/cenv"),
             skip: false,
@@ -388,6 +448,8 @@ mod package_tests {
             wanted_version: String::from("1.0.3"),
         };
         assert_eq!(pkg, expected);
+
+        env::set_current_dir(current).unwrap();
         Ok(())
     }
 }

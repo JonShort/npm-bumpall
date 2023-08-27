@@ -8,6 +8,10 @@
   },
   "author": "",
   "license": "ISC",
+  "workspaces": [
+    "workspaces/a",
+    "workspaces/b"
+  ],
   "dependencies": {
     "@jonshort/cenv": "^0.0.6",
     "left-pad": "^1.2.0",
