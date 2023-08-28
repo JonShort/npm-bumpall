@@ -1,6 +1,9 @@
 use std::{error::Error, fmt};
 
-use crate::utility::{Config, UpgradeStyle};
+use crate::{
+    npm_cmd::PackageValue,
+    utility::{Config, UpgradeStyle},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParseError;
@@ -12,43 +15,6 @@ impl fmt::Display for ParseError {
 }
 
 impl Error for ParseError {}
-
-fn val_or_err<T>(opt: Option<T>) -> Result<T, ParseError> {
-    if let Some(val) = opt {
-        Ok(val)
-    } else {
-        Err(ParseError)
-    }
-}
-
-const MISSING: &str = "MISSING";
-
-fn split_name_and_version(src: Option<&str>) -> Result<(String, String), ParseError> {
-    let src = val_or_err(src)?;
-
-    if src == MISSING {
-        return Ok((String::from(""), String::from(MISSING)));
-    }
-
-    let is_scoped_package = src.starts_with('@');
-    let mut segments = src.split('@');
-
-    if is_scoped_package {
-        // the first value is guaranteed to be an empty slice
-        segments.next();
-    }
-
-    let name = val_or_err(segments.next())?;
-    let version = val_or_err(segments.next())?;
-
-    if name.trim().is_empty() || version.trim().is_empty() {
-        return Err(ParseError);
-    }
-
-    let prefix = if is_scoped_package { "@" } else { "" };
-
-    Ok((format!("{}{}", prefix, name), version.to_string()))
-}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum UpgradeType {
@@ -69,32 +35,29 @@ pub struct Package {
 }
 
 impl Package {
-    pub fn new(src: String, config: &Config) -> Result<Package, ParseError> {
-        // :name@wanted_version:MISSING:name@latest_version:project
-        // location:name@wanted_version:name@current_version:name@latest_version:project
-        let mut segments = src.split(':');
+    pub fn new(
+        package_name: String,
+        package_value: &PackageValue,
+        config: &Config,
+    ) -> Result<Package, ParseError> {
+        if package_name.is_empty() {
+            return Err(ParseError);
+        };
 
         // On windows, the location starts with drive information, e.g. D:\\windows\dir
         // This clashes with the split on ":", so we handle this separately
-        let _location = if src.len() > 4 && &src[1..3] == ":\\" {
-            format!(
-                "{}:{}",
-                val_or_err(segments.next())?,
-                val_or_err(segments.next())?
-            )
-        } else {
-            val_or_err(segments.next()).unwrap().to_string()
-        };
 
-        let (name, wanted_version) = split_name_and_version(segments.next())?;
-        let (_, current_version) = split_name_and_version(segments.next())?;
-        let (_, latest_version) = split_name_and_version(segments.next())?;
-        let install_dir_name: String = segments.collect::<Vec<&str>>().join(":").trim().to_owned();
+        let name = package_name;
+        let wanted_version = package_value.wanted.clone();
+        let current_version = package_value.current.clone();
+        let latest_version = package_value.latest.clone();
+        let install_dir_name = package_value.dependent.clone();
 
         let upgrade_string = match config.upgrade_style {
             UpgradeStyle::Latest => latest_version.clone(),
             UpgradeStyle::Wanted => wanted_version.clone(),
         };
+        eprint!("{:?}", install_dir_name);
 
         let install_cmd = format!("{}@{}", name, upgrade_string);
         let is_probably_workspace_dep = Some(install_dir_name.clone()) != config.current_dir_name;
@@ -126,59 +89,6 @@ impl Package {
 // Tests --------------------------------------------------------------
 
 #[cfg(test)]
-mod val_or_err_tests {
-    use super::*;
-
-    #[test]
-    fn err_result_on_none() {
-        assert_eq!(val_or_err::<Option<()>>(None), Err(ParseError));
-    }
-
-    #[test]
-    fn ok_val_on_some() {
-        assert_eq!(val_or_err(Some("hello")), Ok("hello"));
-        assert_eq!(val_or_err(Some(false)), Ok(false));
-        assert_eq!(val_or_err(Some(ParseError)), Ok(ParseError));
-    }
-}
-
-#[cfg(test)]
-mod split_name_and_version_tests {
-    use super::*;
-
-    #[test]
-    fn err_result_on_invalid_input() {
-        let test_cases = vec![
-            None,
-            Some(""),
-            Some("noversion@"),
-            Some("@0.5.5"),
-            Some("@jonshort/cenv0.1.0"),
-        ];
-
-        for case in test_cases {
-            assert_eq!(split_name_and_version(case), Err(ParseError));
-        }
-    }
-
-    #[test]
-    fn correct_result_on_scoped() {
-        assert_eq!(
-            split_name_and_version(Some("@jonshort/cenv@0.1.0")),
-            Ok((String::from("@jonshort/cenv"), String::from("0.1.0")))
-        );
-    }
-
-    #[test]
-    fn correct_result_non_scoped() {
-        assert_eq!(
-            split_name_and_version(Some("package-name@0.1.0")),
-            Ok((String::from("package-name"), String::from("0.1.0")))
-        );
-    }
-}
-
-#[cfg(test)]
 mod package_tests {
     use crate::utility::Args;
 
@@ -189,44 +99,26 @@ mod package_tests {
     #[test]
     fn err_result_on_empty_string() {
         let config = Config::new_from_args(Args::default());
-        let pkg = Package::new(String::from(""), &config);
+        let pkg = Package::new(String::from(""), &PackageValue::default(), &config);
 
         assert_eq!(pkg, Err(ParseError))
     }
 
     #[test]
-    fn err_result_on_invalid_string() {
-        // valid input string:
-        // location:name@wanted_version:name@current_version:name@latest_version
-        let test_cases = vec![
-            String::from("location:name@2.0.0:name@1.0.0:name@"),
-            String::from("location:name@2.0.0:name@1.0.0:name"),
-            String::from("location:name@2.0.0:name@1.0.0:"),
-            String::from("location:name@2.0.0:name@"),
-            String::from("location:name@2.0.0:name"),
-            String::from("location:name@2.0.0:"),
-            String::from("location:name@"),
-            String::from("location:name"),
-            String::from("location:"),
-            String::from("loc"),
-            String::from(""),
-        ];
-
-        for case in test_cases {
-            let config = Config::new_from_args(Args::default());
-            let pkg = Package::new(case, &config);
-
-            assert_eq!(pkg, Err(ParseError))
-        }
-    }
-
-    #[test]
     fn expected_result_on_valid_input_1() -> Result<(), ParseError> {
         let config = Config::new_from_args(Args::default());
+
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided =
-            String::from("location:myPackage@1.23.0:myPackage@1.7.3:myPackage@2.0.1:my_dir");
-        let pkg = Package::new(provided, &config)?;
+        let package_name = String::from("myPackage");
+        let package_value = PackageValue {
+            current: String::from("1.7.3"),
+            wanted: String::from("1.23.0"),
+            latest: String::from("2.0.1"),
+            dependent: String::from("my_dir"),
+            location: String::from("location"),
+        };
+
+        let pkg = Package::new(package_name, &package_value, &config)?;
 
         let expected = Package {
             current_version: String::from("1.7.3"),
@@ -248,10 +140,18 @@ mod package_tests {
             latest: true,
             ..Args::default()
         });
+
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided =
-            String::from("location:myPackage@1.23.0:myPackage@1.7.3:myPackage@2.0.1:dirNameThing");
-        let pkg = Package::new(provided, &config)?;
+        let package_name = String::from("myPackage");
+        let package_value = PackageValue {
+            current: String::from("1.7.3"),
+            wanted: String::from("1.23.0"),
+            latest: String::from("2.0.1"),
+            dependent: String::from("dirNameThing"),
+            location: String::from("location"),
+        };
+
+        let pkg = Package::new(package_name, &package_value, &config)?;
 
         let expected = Package {
             current_version: String::from("1.7.3"),
@@ -270,9 +170,18 @@ mod package_tests {
     #[test]
     fn expected_result_on_valid_input_3() -> Result<(), ParseError> {
         let config = Config::new_from_args(Args::default());
+
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided = String::from("location:@jonshort/cenv@125.24567.2:@jonshort/cenv@125.24222.1:@jonshort/cenv@5412.0.0:my-dir_with:special chars");
-        let pkg = Package::new(provided, &config)?;
+        let package_name = String::from("@jonshort/cenv");
+        let package_value = PackageValue {
+            current: String::from("125.24222.1"),
+            wanted: String::from("125.24567.2"),
+            latest: String::from("5412.0.0"),
+            dependent: String::from("my-dir_with:special chars"),
+            location: String::from("location"),
+        };
+
+        let pkg = Package::new(package_name, &package_value, &config)?;
 
         let expected = Package {
             current_version: String::from("125.24222.1"),
@@ -294,9 +203,18 @@ mod package_tests {
             latest: true,
             ..Args::default()
         });
+
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided = String::from("location:@jonshort/cenv@125.24567.2:@jonshort/cenv@125.24222.1:@jonshort/cenv@5412.0.0:a");
-        let pkg = Package::new(provided, &config)?;
+        let package_name = String::from("@jonshort/cenv");
+        let package_value = PackageValue {
+            current: String::from("125.24222.1"),
+            wanted: String::from("125.24567.2"),
+            latest: String::from("5412.0.0"),
+            dependent: String::from("a"),
+            location: String::from("location"),
+        };
+
+        let pkg = Package::new(package_name, &package_value, &config)?;
 
         let expected = Package {
             current_version: String::from("125.24222.1"),
@@ -320,11 +238,18 @@ mod package_tests {
         env::set_current_dir("./src/test_files").unwrap();
 
         let config = Config::new_from_args(Args { ..Args::default() });
+
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided = String::from(
-            "location:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.2:@jonshort/cenv@2.1.0:test_files",
-        );
-        let pkg = Package::new(provided, &config)?;
+        let package_name = String::from("@jonshort/cenv");
+        let package_value = PackageValue {
+            current: String::from("1.0.2"),
+            wanted: String::from("1.0.2"),
+            latest: String::from("2.1.0"),
+            dependent: String::from("test_files"),
+            location: String::from("location"),
+        };
+
+        let pkg = Package::new(package_name, &package_value, &config)?;
 
         let expected = Package {
             current_version: String::from("1.0.2"),
@@ -349,11 +274,18 @@ mod package_tests {
             latest: true,
             ..Args::default()
         });
+
         // location:name@wanted_version:name@current_version:name@latest_version
-        let provided = String::from(
-            "location:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3:[]{}()dir*",
-        );
-        let pkg = Package::new(provided, &config)?;
+        let package_name = String::from("@jonshort/cenv");
+        let package_value = PackageValue {
+            current: String::from("1.0.2"),
+            wanted: String::from("1.0.3"),
+            latest: String::from("1.0.3"),
+            dependent: String::from("[]{}()dir*"),
+            location: String::from("location"),
+        };
+
+        let pkg = Package::new(package_name, &package_value, &config)?;
 
         let expected = Package {
             current_version: String::from("1.0.2"),
@@ -376,9 +308,16 @@ mod package_tests {
             ..Args::default()
         });
         // location:name@wanted_version:MISSING:name@latest_version
-        let provided =
-            String::from("location:@jonshort/cenv@1.0.3:MISSING:@jonshort/cenv@1.0.3:\\|~#;<>");
-        let pkg = Package::new(provided, &config)?;
+        let package_name = String::from("@jonshort/cenv");
+        let package_value = PackageValue {
+            current: String::from("MISSING"),
+            wanted: String::from("1.0.3"),
+            latest: String::from("1.0.3"),
+            dependent: String::from("\\|~#;<>"),
+            location: String::from("location"),
+        };
+
+        let pkg = Package::new(package_name, &package_value, &config)?;
 
         let expected = Package {
             current_version: String::from("MISSING"),
@@ -400,11 +339,18 @@ mod package_tests {
             latest: true,
             ..Args::default()
         });
+
         // location:name@wanted_version:name@current_version:name@latest_version:project
-        let provided = String::from(
-            "D:\\git\npm:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3:a",
-        );
-        let pkg = Package::new(provided, &config)?;
+        let package_name = String::from("@jonshort/cenv");
+        let package_value = PackageValue {
+            current: String::from("1.0.2"),
+            wanted: String::from("1.0.3"),
+            latest: String::from("1.0.3"),
+            dependent: String::from("a"),
+            location: String::from("D:\\git\npm:@jonshort/cenv@1.0.3"),
+        };
+
+        let pkg = Package::new(package_name, &package_value, &config)?;
 
         let expected = Package {
             current_version: String::from("1.0.2"),
@@ -430,12 +376,19 @@ mod package_tests {
             latest: true,
             ..Args::default()
         });
+
         // location:name@wanted_version:name@current_version:name@latest_version:project
         // Also included \r which can be included on windows for some reason
-        let provided = String::from(
-            "D:\\git\npm:@jonshort/cenv@1.0.3:@jonshort/cenv@1.0.2:@jonshort/cenv@1.0.3:test_files\r",
-        );
-        let pkg = Package::new(provided, &config)?;
+        let package_name = String::from("@jonshort/cenv");
+        let package_value = PackageValue {
+            current: String::from("1.0.2"),
+            wanted: String::from("1.0.3"),
+            latest: String::from("1.0.3"),
+            dependent: String::from("test_files"),
+            location: String::from("D:\\git\npm:@jonshort/cenv@1.0.3"),
+        };
+
+        let pkg = Package::new(package_name, &package_value, &config)?;
 
         let expected = Package {
             current_version: String::from("1.0.2"),
