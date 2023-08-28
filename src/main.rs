@@ -26,10 +26,9 @@ fn main() {
         process::exit(70)
     });
 
-    let split_by_eol: Vec<&str> = output.split_terminator('\n').collect();
-    let packages: Vec<Package> = split_by_eol
+    let packages: Vec<Package> = output
         .iter()
-        .filter_map(|&s| match Package::new(s.into(), &config) {
+        .filter_map(|(s, v)| match Package::new(s.into(), v, &config) {
             Ok(pkg) => {
                 if pkg.skip {
                     None
@@ -40,6 +39,8 @@ fn main() {
             Err(_) => None,
         })
         .collect();
+
+    eprint!("{:?}", packages);
 
     if packages.is_empty() {
         println!("{} No outdated packages found {}", &ROCKET, &ROCKET);

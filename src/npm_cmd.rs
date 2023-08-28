@@ -1,5 +1,6 @@
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::{error::Error, fs, process};
+use std::{collections::HashMap, error::Error, fs, process};
 
 use crate::utility::Config;
 
@@ -68,14 +69,37 @@ fn patch_mode_cleanup() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn run(config: &Config) -> Result<String, Box<dyn Error>> {
+type JsonMap = HashMap<String, PackageValue>;
+
+#[derive(Serialize, Deserialize)]
+pub struct PackageValue {
+    pub current: String,
+    pub wanted: String,
+    pub latest: String,
+    pub dependent: String,
+    pub location: String,
+}
+
+impl Default for PackageValue {
+    fn default() -> Self {
+        PackageValue {
+            current: "".to_string(),
+            wanted: "".to_string(),
+            latest: "".to_string(),
+            dependent: "".to_string(),
+            location: "".to_string(),
+        }
+    }
+}
+
+pub fn run(config: &Config) -> Result<JsonMap, Box<dyn Error>> {
     if config.is_patch_mode {
         patch_mode_init()?;
     }
 
     let output = process::Command::new(NPM)
         .arg("outdated")
-        .arg("--parseable")
+        .arg("--json")
         .output()
         .unwrap_or_else(|err| {
             // worst case scenario where they both fail just panic
@@ -89,6 +113,7 @@ pub fn run(config: &Config) -> Result<String, Box<dyn Error>> {
     }
 
     let output = String::from_utf8(output.stdout)?;
+    let output: JsonMap = serde_json::from_str(&output)?;
 
     Ok(output)
 }
