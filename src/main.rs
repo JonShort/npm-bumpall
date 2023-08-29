@@ -6,7 +6,7 @@ mod npm_cmd;
 mod package;
 mod utility;
 
-use emojis::{CACTUS, CROSS, DIZZY, MAGNIFYING_GLASS, POINT_RIGHT, ROCKET, TROPHY};
+use emojis::{CACTUS, CROSS, DIZZY, MAGNIFYING_GLASS, POINT_RIGHT, ROCKET, THINKING, TROPHY};
 use package::{Package, UpgradeType};
 use utility::{print_message, Config, UpgradeStyle};
 
@@ -78,6 +78,18 @@ fn main() {
         })
         .map(|pkg| String::from(&pkg.install_cmd))
         .collect();
+
+    if cmd_args.is_empty() {
+        eprintln!(
+            "{} No packages match provided glob - you provided \"{}\"",
+            THINKING,
+            config.include_glob.unwrap().as_str()
+        );
+        println!(
+            "For more info on glob patterns, see https://en.wikipedia.org/wiki/Glob_(programming)"
+        );
+        process::exit(74)
+    }
 
     print_message(&format!("Upgrading {} packages", cmd_args.len()), &DIZZY);
 
