@@ -79,7 +79,7 @@ fn main() {
         .map(|pkg| String::from(&pkg.install_cmd))
         .collect();
 
-    print_message("Upgrading packages", &DIZZY);
+    print_message(&format!("Upgrading {} packages", cmd_args.len()), &DIZZY);
 
     let mut install = process::Command::new(NPM)
         .stdout(config.stdout_method)
