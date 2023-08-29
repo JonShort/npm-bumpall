@@ -72,6 +72,10 @@ fn main() {
 
     let cmd_args: Vec<String> = packages
         .iter()
+        .filter(|x| match &config.include_glob {
+            Some(glob) => glob.matches(&x.name),
+            None => true,
+        })
         .map(|pkg| String::from(&pkg.install_cmd))
         .collect();
 
