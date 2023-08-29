@@ -91,6 +91,16 @@ fn main() {
         process::exit(74)
     }
 
+    if config.include_glob.is_some() {
+        print_message(
+            &format!(
+                "Include glob provided - \"{}\"",
+                config.include_glob.unwrap().as_str()
+            ),
+            &MAGNIFYING_GLASS,
+        );
+    }
+
     print_message(&format!("Upgrading {} packages", cmd_args.len()), &DIZZY);
 
     let mut install = process::Command::new(NPM)
