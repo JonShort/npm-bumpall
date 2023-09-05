@@ -6,7 +6,7 @@ mod npm_cmd;
 mod package;
 mod utility;
 
-use emojis::{CACTUS, CROSS, DIZZY, MAGNIFYING_GLASS, POINT_RIGHT, ROCKET, THINKING, TROPHY};
+use emojis::{CACTUS, CROSS, DIZZY, MAGNIFYING_GLASS, POINT_RIGHT, ROCKET, TROPHY};
 use package::{Package, UpgradeType};
 use utility::{print_message, Config, UpgradeStyle};
 
