@@ -32,10 +32,18 @@ fn main() {
         .filter_map(|&s| match Package::new(s.into(), &config) {
             Ok(pkg) => {
                 if pkg.skip {
-                    None
-                } else {
-                    Some(pkg)
+                    return None;
                 }
+
+                if config
+                    .include_glob
+                    .as_ref()
+                    .is_some_and(|glob| !glob.matches(&pkg.name))
+                {
+                    return None;
+                }
+
+                Some(pkg)
             }
             Err(_) => None,
         })
@@ -72,34 +80,8 @@ fn main() {
 
     let cmd_args: Vec<String> = packages
         .iter()
-        .filter(|x| match &config.include_glob {
-            Some(glob) => glob.matches(&x.name),
-            None => true,
-        })
         .map(|pkg| String::from(&pkg.install_cmd))
         .collect();
-
-    if cmd_args.is_empty() {
-        eprintln!(
-            "{} No packages match provided glob - you provided \"{}\"",
-            THINKING,
-            config.include_glob.unwrap().as_str()
-        );
-        println!(
-            "For more info on glob patterns, see https://en.wikipedia.org/wiki/Glob_(programming)"
-        );
-        process::exit(74)
-    }
-
-    if config.include_glob.is_some() {
-        print_message(
-            &format!(
-                "Include glob provided - \"{}\"",
-                config.include_glob.unwrap().as_str()
-            ),
-            &MAGNIFYING_GLASS,
-        );
-    }
 
     print_message(&format!("Upgrading {} packages", cmd_args.len()), &DIZZY);
 
