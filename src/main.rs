@@ -32,10 +32,18 @@ fn main() {
         .filter_map(|&s| match Package::new(s.into(), &config) {
             Ok(pkg) => {
                 if pkg.skip {
-                    None
-                } else {
-                    Some(pkg)
+                    return None;
                 }
+
+                if config
+                    .include_glob
+                    .as_ref()
+                    .is_some_and(|glob| !glob.matches(&pkg.name))
+                {
+                    return None;
+                }
+
+                Some(pkg)
             }
             Err(_) => None,
         })
@@ -75,7 +83,7 @@ fn main() {
         .map(|pkg| String::from(&pkg.install_cmd))
         .collect();
 
-    print_message("Upgrading packages", &DIZZY);
+    print_message(&format!("Upgrading {} packages", cmd_args.len()), &DIZZY);
 
     let mut install = process::Command::new(NPM)
         .stdout(config.stdout_method)

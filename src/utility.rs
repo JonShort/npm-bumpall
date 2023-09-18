@@ -1,4 +1,5 @@
 use clap::Parser;
+use glob::Pattern;
 use std::any::type_name;
 use std::env::current_dir;
 use std::process::Stdio;
@@ -26,6 +27,10 @@ pub struct Args {
     #[arg(short, long)]
     ///List dependencies which would be bumped, but don't update them
     pub dry_run: bool,
+
+    #[arg(short, long)]
+    ///Only bumps packages which match the glob pattern provided
+    pub include: Option<String>,
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -38,6 +43,7 @@ pub enum UpgradeStyle {
 pub struct Config {
     pub additional_install_args: Vec<String>,
     pub current_dir_name: Option<String>,
+    pub include_glob: Option<Pattern>,
     pub is_dry_run: bool,
     pub is_patch_mode: bool,
     pub stderr_method: Stdio,
@@ -59,8 +65,9 @@ impl PartialEq for Config {
         let e = print_type_of(&self.stderr_method) == print_type_of(&other.stderr_method);
         let o = print_type_of(&self.stdout_method) == print_type_of(&other.stdout_method);
         let u = self.upgrade_style == other.upgrade_style;
+        let i = self.include_glob == other.include_glob;
 
-        a && cdr && dr && pm && e && o && u
+        a && cdr && dr && pm && e && o && u && i
     }
 }
 
@@ -75,6 +82,7 @@ impl Config {
         let mut stderr_method = Stdio::null();
         let mut stdout_method = Stdio::null();
         let mut upgrade_style = UpgradeStyle::Wanted;
+        let mut include_glob = None;
 
         if args.latest {
             upgrade_style = UpgradeStyle::Latest;
@@ -89,6 +97,12 @@ impl Config {
             additional_install_args.push(String::from("--legacy-peer-deps"));
         }
 
+        if let Some(g) = args.include {
+            if let Ok(ptn) = Pattern::new(&g) {
+                include_glob = Some(ptn);
+            }
+        }
+
         let current_dir_name = match current_dir().unwrap_or_default().file_name() {
             Some(d) => d.to_str().map(String::from),
             None => None,
@@ -97,6 +111,7 @@ impl Config {
         Config {
             additional_install_args,
             current_dir_name,
+            include_glob,
             is_dry_run: args.dry_run,
             is_patch_mode: args.patch,
             stderr_method,
@@ -116,6 +131,7 @@ pub fn print_message(message: &str, emoji: &char) {
 #[cfg(test)]
 mod config_tests {
     use super::*;
+    use glob::Pattern;
     use serial_test::{parallel, serial};
     use std::env;
 
@@ -134,6 +150,7 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
+            include_glob: None,
             is_dry_run: false,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
@@ -154,6 +171,7 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
+            include_glob: None,
             is_dry_run: false,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
@@ -174,6 +192,7 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![String::from("--legacy-peer-deps")],
             current_dir_name: Some(String::from("npm-bumpall")),
+            include_glob: None,
             is_dry_run: false,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
@@ -195,6 +214,7 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
+            include_glob: None,
             is_dry_run: false,
             is_patch_mode: false,
             stderr_method: Stdio::inherit(),
@@ -215,6 +235,7 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
+            include_glob: None,
             is_dry_run: true,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
@@ -234,6 +255,7 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("test_files")),
+            include_glob: None,
             is_dry_run: false,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
@@ -256,6 +278,7 @@ mod config_tests {
         let expected = Config {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
+            include_glob: None,
             is_dry_run: false,
             is_patch_mode: true,
             stderr_method: Stdio::null(),
@@ -267,18 +290,41 @@ mod config_tests {
 
     #[test]
     #[parallel]
+    fn handles_include_arg() {
+        let args_a = Args {
+            include: Some(String::from("hello")),
+            ..Args::default()
+        };
+        let result_a = Config::new_from_args(args_a);
+        let expected = Config {
+            additional_install_args: vec![],
+            current_dir_name: Some(String::from("npm-bumpall")),
+            include_glob: Some(Pattern::new("hello").unwrap()),
+            is_dry_run: false,
+            is_patch_mode: false,
+            stderr_method: Stdio::null(),
+            stdout_method: Stdio::null(),
+            upgrade_style: UpgradeStyle::Wanted,
+        };
+        assert_eq!(result_a, expected);
+    }
+
+    #[test]
+    #[parallel]
     fn handles_combo_args() {
         let args_a = Args {
+            dry_run: true,
+            include: Some(String::from(".*")),
             latest: true,
+            legacy_peer_deps: true,
             patch: true,
             verbose: true,
-            dry_run: true,
-            legacy_peer_deps: true,
         };
         let result_a = Config::new_from_args(args_a);
         let expected = Config {
             additional_install_args: vec![String::from("--legacy-peer-deps")],
             current_dir_name: Some(String::from("npm-bumpall")),
+            include_glob: Some(Pattern::new(".*").unwrap()),
             is_dry_run: true,
             is_patch_mode: true,
             stderr_method: Stdio::inherit(),
