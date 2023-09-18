@@ -12,15 +12,17 @@ _Execute the binary_
 
 ### Options
 
-`--dry-run` | `-dr` - list dependencies which would be bumped, but don't update them
+`--help` | `-h` - print help to the terminal
+
+`--dry-run` | `-d` - list dependencies which would be bumped, but don't update them
 
 `--latest` | `-l` - bump dependencies to latest possible version (includes major changes)
 
-`--legacy-peer-deps` | `-lpd` - includes this option in the npm install under the hood
+`--legacy-peer-deps` - includes this option in the npm install under the hood
 
 `--patch` | `-p` - only include patch version updates (experimental)
 
-`--verbose` | `-vb` - include all possible messages in console output (e.g. warnings from npm itself)
+`--verbose` | `-v` - include all possible messages in console output (e.g. warnings from npm itself)
 
 ## Compiling
 _Generate a release build_

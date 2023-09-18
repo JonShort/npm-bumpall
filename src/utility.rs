@@ -13,7 +13,7 @@ pub struct Args {
     pub latest: bool,
 
     #[arg(short, long)]
-    ///Update to latest patch version only
+    ///Update to latest patch version only (experimental)
     pub patch: bool,
 
     #[arg(long)]
