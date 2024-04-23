@@ -74,7 +74,13 @@ fn main() {
     println!();
 
     if config.is_dry_run {
-        print_message("Dry run, exiting...", &CACTUS);
+        print_message(
+            &format!(
+                "{} updates available, pass --update or -u to update",
+                packages.len(),
+            ),
+            &ROCKET,
+        );
         process::exit(0);
     }
 
