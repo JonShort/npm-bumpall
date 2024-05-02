@@ -5,10 +5,17 @@ Utility to bump npm packages, by default to the latest minor version.
 Main feature is also updating the `package.json`, rather than just updating the version in the lockfile (e.g. like how `npm update` works)
 
 ## Usage
-_Execute the binary_
+_Execute the binary to see available updates_
 ```bash
 ~/repos/npm-bumpall/rust/target/release/npm-bumpall
 ```
+
+_To accept these updates, pass the `-u` or `--update` flag_
+```bash
+~/repos/npm-bumpall/rust/target/release/npm-bumpall -u
+```
+
+![image](https://github.com/JonShort/npm-bumpall/assets/21317379/cd884d87-2a8d-4099-83b7-99e1be30744a)
 
 ### Options
 

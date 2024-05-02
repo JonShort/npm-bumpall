@@ -25,8 +25,8 @@ pub struct Args {
     pub verbose: bool,
 
     #[arg(short, long)]
-    ///List dependencies which would be bumped, but don't update them
-    pub dry_run: bool,
+    ///Update outdated dependencies
+    pub update: bool,
 
     #[arg(short, long)]
     ///Only bumps packages which match the glob pattern provided
@@ -112,7 +112,7 @@ impl Config {
             additional_install_args,
             current_dir_name,
             include_glob,
-            is_dry_run: args.dry_run,
+            is_dry_run: !args.update,
             is_patch_mode: args.patch,
             stderr_method,
             stdout_method,
@@ -151,7 +151,7 @@ mod config_tests {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
             include_glob: None,
-            is_dry_run: false,
+            is_dry_run: true,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
             stdout_method: Stdio::null(),
@@ -172,7 +172,7 @@ mod config_tests {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
             include_glob: None,
-            is_dry_run: false,
+            is_dry_run: true,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
             stdout_method: Stdio::null(),
@@ -193,7 +193,7 @@ mod config_tests {
             additional_install_args: vec![String::from("--legacy-peer-deps")],
             current_dir_name: Some(String::from("npm-bumpall")),
             include_glob: None,
-            is_dry_run: false,
+            is_dry_run: true,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
             stdout_method: Stdio::null(),
@@ -215,7 +215,7 @@ mod config_tests {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
             include_glob: None,
-            is_dry_run: false,
+            is_dry_run: true,
             is_patch_mode: false,
             stderr_method: Stdio::inherit(),
             stdout_method: Stdio::inherit(),
@@ -226,9 +226,9 @@ mod config_tests {
 
     #[test]
     #[parallel]
-    fn handles_dry_run_arg() {
+    fn handles_update_arg() {
         let args_a = Args {
-            dry_run: true,
+            update: true,
             ..Args::default()
         };
         let result_a = Config::new_from_args(args_a);
@@ -236,7 +236,7 @@ mod config_tests {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
             include_glob: None,
-            is_dry_run: true,
+            is_dry_run: false,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
             stdout_method: Stdio::null(),
@@ -256,7 +256,7 @@ mod config_tests {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("test_files")),
             include_glob: None,
-            is_dry_run: false,
+            is_dry_run: true,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
             stdout_method: Stdio::null(),
@@ -279,7 +279,7 @@ mod config_tests {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
             include_glob: None,
-            is_dry_run: false,
+            is_dry_run: true,
             is_patch_mode: true,
             stderr_method: Stdio::null(),
             stdout_method: Stdio::null(),
@@ -300,7 +300,7 @@ mod config_tests {
             additional_install_args: vec![],
             current_dir_name: Some(String::from("npm-bumpall")),
             include_glob: Some(Pattern::new("hello").unwrap()),
-            is_dry_run: false,
+            is_dry_run: true,
             is_patch_mode: false,
             stderr_method: Stdio::null(),
             stdout_method: Stdio::null(),
@@ -313,7 +313,7 @@ mod config_tests {
     #[parallel]
     fn handles_combo_args() {
         let args_a = Args {
-            dry_run: true,
+            update: true,
             include: Some(String::from(".*")),
             latest: true,
             legacy_peer_deps: true,
@@ -325,7 +325,7 @@ mod config_tests {
             additional_install_args: vec![String::from("--legacy-peer-deps")],
             current_dir_name: Some(String::from("npm-bumpall")),
             include_glob: Some(Pattern::new(".*").unwrap()),
-            is_dry_run: true,
+            is_dry_run: false,
             is_patch_mode: true,
             stderr_method: Stdio::inherit(),
             stdout_method: Stdio::inherit(),

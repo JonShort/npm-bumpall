@@ -6,7 +6,7 @@ mod npm_cmd;
 mod package;
 mod utility;
 
-use emojis::{CACTUS, CROSS, DIZZY, MAGNIFYING_GLASS, POINT_RIGHT, ROCKET, TROPHY};
+use emojis::{CROSS, DIZZY, MAGNIFYING_GLASS, POINT_RIGHT, ROCKET, TROPHY};
 use package::{Package, UpgradeType};
 use utility::{print_message, Config, UpgradeStyle};
 
@@ -74,7 +74,13 @@ fn main() {
     println!();
 
     if config.is_dry_run {
-        print_message("Dry run, exiting...", &CACTUS);
+        print_message(
+            &format!(
+                "{} updates available, pass --update or -u to update",
+                packages.len(),
+            ),
+            &ROCKET,
+        );
         process::exit(0);
     }
 
